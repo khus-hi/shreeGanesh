@@ -76,6 +76,22 @@ def _age_days(ts):
         return 99
 
 
+def _iso(ts):
+    """ISO string or epoch-ms -> UTC ISO string ('' if unknown)."""
+    if ts is None:
+        return ""
+    try:
+        if isinstance(ts, (int, float)):
+            dt = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
+        else:
+            dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).isoformat(timespec="minutes").replace("+00:00", "Z")
+    except Exception:
+        return ""
+
+
 def _posted_label(days):
     return "Posted Today" if days == 0 else "Posted Yesterday" if days == 1 else f"Posted {days} Days Ago"
 
@@ -96,6 +112,7 @@ def fetch_board(url, keep_title, max_days):
                     "source": "Greenhouse", "company": slug, "title": j["title"],
                     "location": (j.get("location") or {}).get("name", ""),
                     "posted": _posted_label(days), "url": j.get("absolute_url"),
+                    "posted_at": _iso(j.get("first_published")),
                     "detail_api": f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs/{j['id']}",
                 })
 
@@ -111,6 +128,7 @@ def fetch_board(url, keep_title, max_days):
                     "source": "Lever", "company": slug, "title": j["text"],
                     "location": cats.get("location", ""),
                     "posted": _posted_label(days), "url": j.get("hostedUrl"),
+                    "posted_at": _iso(j.get("createdAt")),
                     "description": " ".join([j.get("descriptionPlain", ""), lists, j.get("additionalPlain", "")]),
                     "extra_locs": cats.get("allLocations") or [],
                     "country": j.get("country", ""),
@@ -132,6 +150,7 @@ def fetch_board(url, keep_title, max_days):
                     "source": "Ashby", "company": slug, "title": j["title"],
                     "location": loc,
                     "posted": _posted_label(days), "url": j.get("jobUrl"),
+                    "posted_at": _iso(j.get("publishedAt")),
                     "description": j.get("descriptionPlain") or j.get("descriptionHtml", ""),
                     "extra_locs": [s.get("location", "") for s in j.get("secondaryLocations") or []]
                                   + [addr.get("addressRegion", "")],

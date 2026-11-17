@@ -33,7 +33,7 @@
   .tab.on { background: var(--navy); border-color: var(--navy); color: #fff; }
   .tab small { opacity: .7; margin-left: 4px; }
   .filters { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px;
-    display: grid; grid-template-columns: 2fr repeat(6, 1fr); gap: 8px; align-items: end; }
+    display: grid; grid-template-columns: 1.6fr repeat(7, 1fr); gap: 8px; align-items: end; }
   .filters label { display: block; font-size: 11.5px; color: var(--muted); margin: 0 0 3px 2px; text-transform: uppercase; letter-spacing: .4px; }
   input[type=search], select { width: 100%; height: 36px; border: 1px solid var(--line); border-radius: 8px;
     padding: 0 10px; background: #fff; font: inherit; font-size: 14px; color: var(--ink); }
@@ -423,6 +423,15 @@
       </select></div>
     <div><label for="f-min">Min match</label>
       <div class="range"><input id="f-min" type="range" min="0" max="100" step="5" value="0"><output id="f-min-out">0%</output></div></div>
+    <div><label for="f-posted">Posted</label>
+      <select id="f-posted">
+        <option value="">Any time</option>
+        <option value="1h">Last 1 hour</option>
+        <option value="3h">Last 3 hours</option>
+        <option value="5h">Last 5 hours</option>
+        <option value="today">Today</option>
+        <option value="yesterday">Yesterday</option>
+      </select></div>
     <div><label for="f-sort">Sort by</label>
       <select id="f-sort">
         <option value="newest">Newest first</option>
@@ -467,8 +476,36 @@
   const saveStatus = () => { try { localStorage.setItem(KEY, JSON.stringify(status)); } catch (e) {} };
   const stOf = j => status[j.url] || "New";
 
-  const parseFound = s => { const d = new Date(String(s).replace(" ", "T")); return isNaN(d) ? 0 : d.getTime(); };
-  const isRecent = j => Date.now() - parseFound(j.found) < 24 * 3600 * 1000;
+  // scanner times are UTC ("YYYY-MM-DD HH:MM" from GitHub's servers)
+  const parseFound = v => { if (!v) return 0; const t = String(v).trim().replace(" ", "T");
+    const d = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(t) ? t : t + "Z"); return isNaN(d) ? 0 : d.getTime(); };
+  // when a job was posted: exact time if the platform gave one, else when the scanner first saw it (~)
+  function postedMs(j) {
+    if (j.posted_at) { const d = Date.parse(j.posted_at); if (!isNaN(d)) return {t: d, approx: false}; }
+    let t = parseFound(j.found);
+    const days = /yesterday/i.test(j.posted) ? 1 : (+(String(j.posted).match(/(\d+)\s*day/i) || [])[1] || 0);
+    if (days) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - days); t = Math.min(t || Infinity, d.getTime()); }
+    return {t: t || 0, approx: true};
+  }
+  function agoLabel(j) {
+    const {t, approx} = postedMs(j); if (!t) return j.posted || "";
+    const m = Math.max(0, Math.round((Date.now() - t) / 60000)), h = Math.floor(m / 60);
+    const txt = m < 60 ? `${Math.max(m, 1)} min ago` : h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
+    return (approx ? "~" : "") + txt;
+  }
+  const localDay = ms => { const d = new Date(ms); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
+  function postedWithin(j, f) {
+    if (!f) return true;
+    const {t} = postedMs(j); if (!t) return false;
+    const age = Date.now() - t;
+    if (f === "1h") return age <= 3600e3;
+    if (f === "3h") return age <= 3 * 3600e3;
+    if (f === "5h") return age <= 5 * 3600e3;
+    if (f === "today") return localDay(t) === localDay(Date.now());
+    if (f === "yesterday") return localDay(t) === localDay(Date.now() - 864e5);
+    return true;
+  }
+  const isRecent = j => Date.now() - postedMs(j).t < 24 * 3600 * 1000;
 
   function ago(iso) {
     const m = Math.round((Date.now() - new Date(iso)) / 60000);
@@ -532,6 +569,7 @@
       if (sp === "hide-no" && j.sponsor === "No") return false;
       if (sp === "yes" && j.sponsor !== "Yes") return false;
       if (Number(j.match) < min) return false;
+      if (!postedWithin(j, el("f-posted").value)) return false;
       if (terms.length) {
         const hay = [j.title, j.company, j.location, j.metro, j.state, j.matched, j.missing, j.source].join(" ").toLowerCase();
         if (!terms.every(t => hay.includes(t))) return false;
@@ -541,7 +579,7 @@
     const sort = el("f-sort").value;
     out.sort(sort === "match" ? (a, b) => b.match - a.match || parseFound(b.found) - parseFound(a.found)
            : sort === "company" ? (a, b) => String(a.company).localeCompare(b.company)
-           : (a, b) => parseFound(b.found) - parseFound(a.found) || b.match - a.match);
+           : (a, b) => postedMs(b).t - postedMs(a).t || b.match - a.match);
     return out;
   }
 
@@ -580,7 +618,7 @@
           ${prior}${isRecent(j) && !pa.exact ? `<span class="chip new">New</span>` : ""}
           <span class="chip resume">Use ${esc(j.resume)} resume</span>
           ${sp}${years}
-          <span class="chip">${esc(j.posted)}</span>
+          <span class="chip" title="${postedMs(j).approx ? "Approximate: when the scanner first found it (this site only gives the date)" : "Exact posting time"}">🕒 ${esc(agoLabel(j))}</span>
           <span class="chip">${esc(j.source)}</span>
         </div>
         ${skills}
@@ -617,14 +655,14 @@
   function rerender(resetPage = true) { if (resetPage) shown = PAGE; render(); }
 
   // events
-  ["q", "f-resume", "f-state", "f-metro", "f-sponsor", "f-sort"].forEach(id =>
+  ["q", "f-resume", "f-state", "f-metro", "f-sponsor", "f-sort", "f-posted"].forEach(id =>
     el(id).addEventListener(id === "q" ? "input" : "change", () => rerender()));
   el("f-min").addEventListener("input", e => { el("f-min-out").textContent = e.target.value + "%"; rerender(); });
   el("tabs").addEventListener("click", e => { const b = e.target.closest("[data-tab]"); if (b) { view = b.dataset.tab; rerender(); } });
   document.querySelectorAll("[data-go]").forEach(s => s.addEventListener("click", () => { view = s.dataset.go; rerender(); }));
   el("more").addEventListener("click", () => { shown += PAGE; render(); });
   el("reset").addEventListener("click", () => {
-    el("q").value = ""; ["f-resume", "f-state", "f-metro", "f-sponsor"].forEach(id => el(id).value = "");
+    el("q").value = ""; ["f-resume", "f-state", "f-metro", "f-sponsor", "f-posted"].forEach(id => el(id).value = "");
     el("f-min").value = 0; el("f-min-out").textContent = "0%"; el("f-sort").value = "newest"; view = "all"; rerender();
   });
   el("list").addEventListener("change", e => {
@@ -1122,7 +1160,7 @@ ${sig}`],
             <div class="tm">${esc(j.company)} · ${esc(j.location)}</div>
             <div class="tchips"><span class="mscore ${mcls(j.match)}">${j.match}% match</span><span class="tag ${esc(j.resume)}">Use ${esc(j.resume)}</span>
               ${j.sponsor === "Yes" ? `<span class="chip yes">Sponsors</span>` : ""}${j.years !== "" && j.years != null ? `<span class="tag">${Number(j.years) === 0 ? "Entry level" : esc(j.years) + "+ yrs"}</span>` : ""}
-              <span class="tag">${esc(j.posted)}</span>${pa.sameCo.length ? `<span class="chip sameco">Applied here before</span>` : ""}</div></div>
+              <span class="tag">🕒 ${esc(agoLabel(j))}</span>${pa.sameCo.length ? `<span class="chip sameco">Applied here before</span>` : ""}</div></div>
           <div class="tacts"><a class="btn primary" href="${esc(j.url)}" target="_blank" rel="noopener">Apply ↗</a>
             <button class="btn" data-t="applied">✓ Mark applied</button><button class="btn" data-t="skip" title="Hide this job">Skip</button></div>
         </div>`;

@@ -429,6 +429,7 @@ def load_store():
 def job_dict(j, now):
     d = dict(zip([KEYS[c] for c in COLUMNS if c in KEYS], [v for c, v in zip(COLUMNS, job_row(j, now)) if c in KEYS]))
     d["story"], d["why"] = j.get("story", ""), j.get("why", "")  # for the outreach email
+    d["posted_at"] = j.get("posted_at", "")  # exact posting time when the platform gives one (UTC)
     return d
 
 
@@ -436,7 +437,7 @@ def dict_row(d):
     return [d.get(KEYS[c], "") if c in KEYS else "" for c in COLUMNS]
 
 
-def job_row(j, now):
+def job_row(j, now):  # note: `now` is UTC on GitHub's servers
     repo = os.getenv("GITHUB_REPOSITORY")
     tailored = j.get("tailored") or ""
     tailored_link = (f"https://github.com/{repo}/blob/main/{tailored}" if repo and tailored else Path(tailored).name)
