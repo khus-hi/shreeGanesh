@@ -28,6 +28,7 @@ from urllib.parse import urlparse
 import requests
 
 from enrich import clean_html, h1b_history, score, sponsorship
+from aggregators import fetch_aggregators
 from stories import pick_story, why_line
 from places import HUB_SEARCH_CITIES, STATE_NAMES, metro_of
 from tailor import tailor_resume
@@ -56,6 +57,11 @@ SEARCH_TERMS = ["data", "machine learning"]  # Workday search also matches descr
 # Workday rate-limits hard (HTTP 429), so Workday sites are checked ONE AT A TIME with pauses,
 # a rotating batch per run. Every site is still checked every few hours.
 WORKDAY_PER_RUN = 12
+
+# Nationwide search on Indeed, LinkedIn, ZipRecruiter and Google Jobs (free, via JobSpy).
+AGGREGATORS = True
+AGG_HOURS_EACH_RUN = 3     # each hourly run looks back 3h (overlap is de-duplicated)
+AGG_FIRST_RUN_HOURS = 24   # the first run back-fills a full day
 WORKDAY_MIN_GAP = 2.0      # seconds between any two Workday requests
 
 TITLE_INCLUDE = re.compile(
@@ -315,7 +321,7 @@ def scan_any(url):
 def get_details(job):
     """Returns (description text, org name, extra location strings, country)."""
     src = job.get("source")
-    if src in ("Lever", "Ashby"):
+    if src in ("Lever", "Ashby", "Indeed", "LinkedIn", "ZipRecruiter", "Google Jobs"):
         return clean_html(job.get("description", "")), "", job.get("extra_locs", []), job.get("country", "")
     if src == "Greenhouse":
         try:
@@ -682,6 +688,14 @@ def main():
         candidates += wd_future.result()
 
     disable_broken(state, others + wd_batch, failed)
+
+    if AGGREGATORS:
+        hours = AGG_HOURS_EACH_RUN if state.get("agg_backfilled") else AGG_FIRST_RUN_HOURS
+        agg, agg_stats = fetch_aggregators(keep_title, MAX_DAYS_OLD, hours)
+        print(f"Nationwide search (last {hours}h): " + ", ".join(f"{k}: {v}" for k, v in agg_stats.items()))
+        candidates += agg
+        if agg:
+            state["agg_backfilled"] = True
 
     # 2. only look closer at jobs we haven't seen before
     store = load_store()

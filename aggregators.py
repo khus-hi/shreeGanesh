@@ -1,0 +1,94 @@
+"""
+Nationwide job search via JobSpy (free, open source): Indeed, LinkedIn, ZipRecruiter, Google Jobs.
+Unlike the company boards, this sees jobs from EVERY company posting in the US.
+
+Each hourly run grabs the last few hours of postings; the first run backfills 24 hours.
+"""
+
+from datetime import date
+
+SEARCH_TERMS = ["data analyst", "data scientist", "data engineer", "machine learning engineer",
+                "analytics engineer", "business intelligence analyst"]
+
+# site -> results per search term (keep LinkedIn small: it rate-limits quickly)
+SITES = {"indeed": 60, "linkedin": 20, "zip_recruiter": 30, "google": 30}
+LABEL = {"indeed": "Indeed", "linkedin": "LinkedIn", "zip_recruiter": "ZipRecruiter", "google": "Google Jobs"}
+
+
+def _ok(v):
+    """True for a real value (pandas fills missing cells with NaN, which is truthy)."""
+    return v is not None and str(v).strip().lower() not in ("", "nan", "none", "nat")
+
+
+def _location(loc, remote):
+    """JobSpy gives a dict {city, state, country} (or a string in some versions)."""
+    if isinstance(loc, dict):
+        loc = {k: v for k, v in loc.items() if _ok(v)}
+        parts = [loc.get("city"), loc.get("state")]
+        text = ", ".join(str(p) for p in parts if p)
+        country = str(loc.get("country") or "")
+        if not text and country:
+            text = country
+    else:
+        text = str(loc or "")
+    if remote and "remote" not in text.lower():
+        text = f"{text} (Remote - US)".strip() if text else "Remote - US"
+    return text
+
+
+def _posted(d):
+    if not d:
+        return "", 0
+    try:
+        days = (date.today() - (d if isinstance(d, date) else date.fromisoformat(str(d)[:10]))).days
+    except Exception:
+        return "", 0
+    return ("Posted Today" if days <= 0 else "Posted Yesterday" if days == 1 else f"Posted {days} Days Ago"), days
+
+
+def fetch_aggregators(keep_title, max_days, hours_old, log=print):
+    """Returns candidate jobs (title + date filtered) from all aggregator sites."""
+    try:
+        from jobspy import scrape_jobs
+    except ImportError:
+        log("JobSpy not installed (pip install python-jobspy): skipping Indeed/LinkedIn/ZipRecruiter/Google")
+        return [], {}
+
+    out, stats = {}, {}
+    for site, per_term in SITES.items():
+        got = 0
+        for term in SEARCH_TERMS:
+            try:
+                kw = dict(site_name=[site], search_term=term, location="United States", results_wanted=per_term,
+                          hours_old=hours_old, country_indeed="USA", verbose=0, description_format="markdown")
+                if site == "linkedin":
+                    kw["linkedin_fetch_description"] = True
+                if site == "google":
+                    when = "since yesterday" if hours_old <= 24 else "in the last 3 days"
+                    kw["google_search_term"] = f"{term} jobs in United States {when}"
+                df = scrape_jobs(**kw)
+            except Exception as e:
+                stats[LABEL[site]] = f"failed: {type(e).__name__}: {str(e)[:80]}"
+                break  # this site is blocking us this run; move on to the next site
+            for r in df.to_dict("records"):
+                title = str(r.get("title")) if _ok(r.get("title")) else ""
+                company = str(r.get("company")) if _ok(r.get("company")) else ""
+                if not title or not company or not keep_title(title):
+                    continue
+                posted, days = _posted(r.get("date_posted"))
+                if days > max_days:
+                    continue
+                url = next((str(u) for u in (r.get("job_url_direct"), r.get("job_url")) if _ok(u)), "")
+                if not url:
+                    continue
+                desc = r.get("description") if _ok(r.get("description")) else ""
+                out.setdefault(str(url), {
+                    "source": LABEL[site], "company": company, "title": title,
+                    "location": _location(r.get("location"), r.get("is_remote") is True),
+                    "posted": posted or "Posted Today", "url": str(url),
+                    "description": str(desc),
+                    "extra_locs": [], "country": "",
+                })
+                got += 1
+        stats.setdefault(LABEL[site], f"{got} candidates")
+    return list(out.values()), stats
