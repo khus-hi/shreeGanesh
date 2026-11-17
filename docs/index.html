@@ -106,24 +106,21 @@
   .tablewrap { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow-x: auto; }
   #page-apps.wrap { max-width: 1480px; }
   table.apps { width: 100%; min-width: 1280px; border-collapse: collapse; font-size: 13.5px; }
-  table.apps td.role { min-width: 250px; max-width: 340px; }
-  table.apps td.co { white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+
   table.apps td:first-child { white-space: nowrap; }
   table.apps th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .3px;
     padding: 10px 10px; border-bottom: 1px solid var(--line); background: #FAFBFC; white-space: nowrap; position: sticky; top: 0; }
   table.apps td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
   table.apps tr:last-child td { border-bottom: 0; }
   table.apps td select { height: 30px; font-size: 13px; padding: 0 6px; min-width: 118px; }
-  table.apps td input.note, table.apps td input.who { width: 100%; min-width: 120px; height: 30px; border: 1px solid transparent; border-radius: 6px; padding: 0 6px; font: inherit; font-size: 13px; background: transparent; }
+  table.apps td input.note, table.apps td input.who { width: 100%; min-width: 150px; height: 30px; border: 1px solid transparent; border-radius: 6px; padding: 0 6px; font: inherit; font-size: 13px; background: transparent; }
   table.apps td input.note:hover, table.apps td input.who:hover, table.apps td input:focus { border-color: var(--line); background: #fff; }
   table.apps .co { font-weight: 600; }
   table.apps .role a { color: var(--ink); text-decoration: none; } table.apps .role a:hover { color: var(--navy); text-decoration: underline; }
   .due { color: var(--red); font-weight: 600; } .done { color: var(--muted); }
   .iconbtn { border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 15px; padding: 4px 6px; border-radius: 6px; }
   .iconbtn:hover { background: #F2F4F7; color: var(--ink); }
-  .s-Interviewing td:first-child, .s-OA td:first-child { box-shadow: inset 4px 0 0 #12B76A; }
-  .s-Offer td:first-child { box-shadow: inset 4px 0 0 #027A48; }
-  .s-Rejected, .s-Ghosted, .s-Withdrawn { opacity: .6; }
+
   dialog { border: 0; border-radius: 14px; padding: 0; width: min(560px, 94vw); box-shadow: 0 24px 60px rgba(16,24,40,.25); }
   dialog::backdrop { background: rgba(16,24,40,.45); }
   dialog form { padding: 22px; }
@@ -147,6 +144,50 @@
   #o-body { height: 300px; font-family: inherit; font-size: 13.5px; line-height: 1.45; }
   #o-subject { font-weight: 600; }
   .copyok { color: var(--green); font-size: 12.5px; margin-left: 6px; }
+  /* ---- My applications: visual layer ---- */
+  .astats .stat { cursor: default; padding: 14px 16px 12px; }
+  .astats .lbl { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+  .astats .num { display: flex; align-items: baseline; gap: 4px; margin: 2px 0 6px; }
+  .astats .num b { font-size: 28px; line-height: 1.1; color: var(--navy); display: inline; }
+  .astats .num i { font-style: normal; color: var(--muted); font-size: 14px; }
+  .astats small { color: var(--muted); font-size: 12px; }
+  .meter { height: 6px; background: #EEF1F6; border-radius: 99px; overflow: hidden; }
+  .meter span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #2C4F8C, #4C7BD9); border-radius: 99px; transition: width .4s; }
+  .meter span.full { background: linear-gradient(90deg, #12B76A, #32D583); }
+  .astats .warn { border-color: #F5C2BE; background: #FFF8F7; } .astats .warn .num b { color: var(--red); }
+  .pipeline { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin-top: 12px; }
+  .pbar { display: flex; height: 12px; border-radius: 99px; overflow: hidden; background: #EEF1F6; gap: 2px; }
+  .pbar span { height: 100%; transition: flex-grow .4s; }
+  .plegend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 13px; }
+  .plegend button { border: 0; background: none; padding: 2px 4px; border-radius: 6px; cursor: pointer; font: inherit; color: var(--ink); display: inline-flex; align-items: center; gap: 6px; }
+  .plegend button:hover, .plegend button.on { background: #F2F4F7; }
+  .plegend .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .plegend b { font-weight: 600; } .plegend .muted { color: var(--muted); }
+  table.apps { min-width: 1080px; }
+  table.apps tbody tr { transition: background .12s; }
+  table.apps tbody tr:hover { background: #F8FAFD; }
+  table.apps tbody tr:hover .rowacts { opacity: 1; }
+  .rowacts { opacity: .35; transition: opacity .12s; white-space: nowrap; }
+  .cocell { display: flex; gap: 12px; align-items: center; min-width: 300px; }
+  .avatar { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; font-weight: 700; font-size: 14px; flex: 0 0 38px; letter-spacing: .3px; }
+  .coname { font-weight: 650; font-weight: 600; color: var(--ink); }
+  .corole { font-size: 13px; color: #475467; margin-top: 1px; }
+  .corole a { color: #475467; text-decoration: none; } .corole a:hover { color: var(--navy); text-decoration: underline; }
+  .cometa { display: flex; gap: 6px; margin-top: 4px; }
+  .tag { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 6px; background: #F2F4F7; color: #475467; }
+  .tag.DA { background: #EAF0FA; color: #1F3A6B; } .tag.DE { background: #E8F6F3; color: #0E6B5C; } .tag.DS { background: #F3EEFC; color: #5B3CC4; }
+  .datecell b { font-weight: 600; display: block; } .datecell small { color: var(--muted); font-size: 12px; }
+  table.apps td select.pillsel { width: auto; min-width: 0; height: 30px; padding: 0 28px 0 12px; font-size: 13px; }
+  select.pillsel { appearance: none; -webkit-appearance: none; border: 0; border-radius: 999px; height: 30px; padding: 0 28px 0 12px;
+    font-size: 13px; font-weight: 600; cursor: pointer; min-width: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23667085' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; }
+  select.pillsel:focus { outline: 2px solid #C7D5EE; }
+  .who { font-size: 12.5px !important; color: var(--muted); margin-top: 4px; }
+  .fu { font-size: 12.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .fu.due { background: var(--red-bg); color: var(--red); } .fu.soon { background: #FFF4D6; color: #7A5200; }
+  .fu.later { background: #F2F4F7; color: #475467; font-weight: 500; } .fu.none { color: #98A2B3; background: none; }
+  table.apps tr.dim td { opacity: .55; }
   @media (max-width: 900px) {
     .filters { grid-template-columns: 1fr 1fr; }
     .filters .search { grid-column: 1 / -1; }
@@ -187,12 +228,17 @@
 
 <main class="wrap" id="page-apps" hidden>
   <section class="astats" aria-label="Application summary">
-    <div class="stat"><b id="a-today">0</b><span>Applied today</span><small id="a-today-t">of 15</small></div>
-    <div class="stat"><b id="a-week">0</b><span>This week</span><small id="a-week-t">of 75</small></div>
-    <div class="stat"><b id="a-out">0</b><span>Outreach today</span><small id="a-out-t">of 3</small></div>
-    <div class="stat" id="a-due-box"><b id="a-due">0</b><span>Follow-ups due</span><small>7+ days, no reply</small></div>
-    <div class="stat"><b id="a-int">0</b><span>Interviewing</span><small id="a-offer">0 offers</small></div>
-    <div class="stat"><b id="a-total">0</b><span>Total applied</span><small id="a-rej">0 rejected</small></div>
+    <div class="stat goal"><span class="lbl">Applied today</span><div class="num"><b id="a-today">0</b><i id="a-today-t">/ 15</i></div><div class="meter"><span id="a-today-bar"></span></div></div>
+    <div class="stat goal"><span class="lbl">This week</span><div class="num"><b id="a-week">0</b><i id="a-week-t">/ 75</i></div><div class="meter"><span id="a-week-bar"></span></div></div>
+    <div class="stat goal"><span class="lbl">Outreach today</span><div class="num"><b id="a-out">0</b><i id="a-out-t">/ 3</i></div><div class="meter"><span id="a-out-bar"></span></div></div>
+    <div class="stat" id="a-due-box"><span class="lbl">Follow-ups due</span><div class="num"><b id="a-due">0</b></div><small>applied 7+ days ago, no reply</small></div>
+    <div class="stat"><span class="lbl">Response rate</span><div class="num"><b id="a-rate">0%</b></div><small id="a-rate-t">0 of 0 heard back</small></div>
+    <div class="stat"><span class="lbl">Total applied</span><div class="num"><b id="a-total">0</b></div><small id="a-int">0 interviewing · 0 offers</small></div>
+  </section>
+
+  <section class="pipeline" aria-label="Pipeline">
+    <div class="pbar" id="a-pbar"></div>
+    <div class="plegend" id="a-plegend"></div>
   </section>
 
   <div class="atools">
@@ -209,8 +255,7 @@
   <div class="tablewrap">
     <table class="apps">
       <thead><tr>
-        <th>Applied</th><th>Company</th><th>Role</th><th>Resume</th><th>State</th><th>Status</th>
-        <th>Reached out?</th><th>Who</th><th>Follow-up</th><th>Notes</th><th></th>
+        <th>Company &amp; role</th><th>Applied</th><th>Status</th><th>Reached out</th><th>Follow-up</th><th>Notes</th><th></th>
       </tr></thead>
       <tbody id="a-body"></tbody>
     </table>
@@ -561,19 +606,44 @@
     return true;
   }
 
+  const ST_COLOR = {"Applied": ["#EAF0FA", "#1F3A6B", "#4C7BD9"], "OA / Assessment": ["#F3EEFC", "#5B3CC4", "#8B6CF0"],
+    "Interviewing": ["#E5F5EC", "#127A4B", "#32D583"], "Offer": ["#FEF3C7", "#92400E", "#F5B700"],
+    "Rejected": ["#FDECEA", "#B42318", "#F97066"], "Ghosted": ["#F2F4F7", "#475467", "#98A2B3"], "Withdrawn": ["#F2F4F7", "#667085", "#D0D5DD"]};
+  const OUT_COLOR = {"Not yet": ["#F2F4F7", "#475467"], "Reached out": ["#EAF0FA", "#1F3A6B"], "Replied": ["#E5F5EC", "#127A4B"], "Referral": ["#F3EEFC", "#5B3CC4"]};
+  const AV = [["#EAF0FA", "#1F3A6B"], ["#E8F6F3", "#0E6B5C"], ["#F3EEFC", "#5B3CC4"], ["#FEF3C7", "#92400E"],
+              ["#FDECEA", "#B42318"], ["#E0F2FE", "#075985"], ["#FCE7F6", "#9D174D"], ["#ECFCCB", "#3F6212"]];
+  const avatar = name => {
+    const n = String(name || "?"), h = [...n].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7), [bg, fg] = AV[h % AV.length];
+    const ini = n.replace(/[^A-Za-z0-9 ]/g, " ").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase() || "?";
+    return `<div class="avatar" style="background:${bg};color:${fg}">${esc(ini)}</div>`;
+  };
+  const pillStyle = ([bg, fg]) => `background-color:${bg};color:${fg}`;
+  const daysAgo = iso => { const d = Math.round((new Date(todayISO() + "T12:00:00") - new Date(iso + "T12:00:00")) / 864e5); return d <= 0 ? "today" : d === 1 ? "yesterday" : `${d} days ago`; };
+  const setMeter = (id, n, target) => { const b = el(id); b.style.width = Math.min(100, n / target * 100) + "%"; b.classList.toggle("full", n >= target); };
+
   function renderApps() {
     const t = todayISO(), ws = weekStart();
     const active = apps.filter(a => a.status !== "Withdrawn");
-    el("a-today").textContent = active.filter(a => a.applied === t).length;
-    el("a-week").textContent = active.filter(a => a.applied >= ws).length;
-    el("a-out").textContent = apps.filter(a => a.outreach_date === t).length;
+    const nToday = active.filter(a => a.applied === t).length, nWeek = active.filter(a => a.applied >= ws).length;
+    const nOut = apps.filter(a => a.outreach_date === t).length;
+    el("a-today").textContent = nToday; setMeter("a-today-bar", nToday, TARGET_DAY);
+    el("a-week").textContent = nWeek; setMeter("a-week-bar", nWeek, TARGET_WEEK);
+    el("a-out").textContent = nOut; setMeter("a-out-bar", nOut, OUT_DAY);
+    el("a-today-t").textContent = `/ ${TARGET_DAY}`; el("a-week-t").textContent = `/ ${TARGET_WEEK}`; el("a-out-t").textContent = `/ ${OUT_DAY}`;
     const due = apps.filter(isDue).length;
     el("a-due").textContent = due; el("a-due-box").classList.toggle("warn", due > 0);
-    el("a-int").textContent = apps.filter(a => ["Interviewing", "OA / Assessment"].includes(a.status)).length;
-    el("a-offer").textContent = `${apps.filter(a => a.status === "Offer").length} offers`;
+    const heard = active.filter(a => ["OA / Assessment", "Interviewing", "Offer", "Rejected"].includes(a.status) || ["Replied", "Referral"].includes(a.outreach)).length;
+    el("a-rate").textContent = active.length ? Math.round(heard / active.length * 100) + "%" : "0%";
+    el("a-rate-t").textContent = `${heard} of ${active.length} heard back`;
     el("a-total").textContent = active.length;
-    el("a-rej").textContent = `${apps.filter(a => a.status === "Rejected").length} rejected`;
-    el("a-today-t").textContent = `of ${TARGET_DAY}`; el("a-week-t").textContent = `of ${TARGET_WEEK}`; el("a-out-t").textContent = `of ${OUT_DAY}`;
+    el("a-int").textContent = `${apps.filter(a => ["Interviewing", "OA / Assessment"].includes(a.status)).length} interviewing · ${apps.filter(a => a.status === "Offer").length} offers`;
+
+    // pipeline bar + legend (click to filter)
+    const counts = A_STATUS.map(st => [st, apps.filter(a => a.status === st).length]);
+    el("a-pbar").innerHTML = counts.filter(([, n]) => n).map(([st, n]) => `<span title="${st}: ${n}" style="flex-grow:${n};background:${ST_COLOR[st][2]}"></span>`).join("");
+    el("a-plegend").innerHTML = counts.map(([st, n]) =>
+      `<button class="${el("a-fs").value === st ? "on" : ""}" data-st="${st}"><span class="dot" style="background:${ST_COLOR[st][2]}"></span>${st} <b>${n}</b></button>`).join("")
+      + (el("a-fs").value ? `<button data-st=""><span class="muted">Show all ✕</span></button>` : "");
 
     const q = el("aq").value.trim().toLowerCase(), fs = el("a-fs").value, fo = el("a-fo").value, sort = el("a-sort").value;
     let rows = apps.filter(a => (!fs || a.status === fs) && (!fo || a.outreach === fo) &&
@@ -584,23 +654,34 @@
     const opt = (list, cur) => list.map(v => `<option${v === cur ? " selected" : ""}>${v}</option>`).join("");
     el("a-body").innerHTML = rows.map(a => {
       const fu = followUp(a), due = isDue(a);
-      const fuCell = !["Applied"].includes(a.status) || ["Replied", "Referral"].includes(a.outreach)
-        ? `<span class="done">—</span>` : `<span class="${due ? "due" : ""}">${due ? "Due " : ""}${fmt(fu)}</span>`;
-      return `<tr class="s-${a.status.split(" ")[0].replace("/", "")}" data-id="${a.id}">
-        <td>${fmt(a.applied)}</td>
-        <td class="co">${esc(a.company)}</td>
-        <td class="role">${a.link ? `<a href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.role)} ↗</a>` : esc(a.role)}</td>
-        <td>${esc(a.resume)}</td><td>${esc(a.state)}</td>
-        <td><select data-f="status">${opt(A_STATUS, a.status)}</select></td>
-        <td><select data-f="outreach">${opt(A_OUT, a.outreach)}</select></td>
-        <td><input class="who" data-f="who" value="${esc(a.who)}" placeholder="—"></td>
+      const waiting = a.status === "Applied" && !["Replied", "Referral"].includes(a.outreach);
+      const left = Math.round((new Date(fu + "T12:00:00") - new Date(t + "T12:00:00")) / 864e5);
+      const fuCell = !waiting ? `<span class="fu none">—</span>`
+        : due ? `<span class="fu due">Follow up · ${fmt(fu)}</span>`
+        : left <= 2 ? `<span class="fu soon">${fmt(fu)} · in ${left}d</span>` : `<span class="fu later">${fmt(fu)}</span>`;
+      const dim = ["Rejected", "Ghosted", "Withdrawn"].includes(a.status);
+      return `<tr class="${dim ? "dim" : ""}" data-id="${a.id}">
+        <td><div class="cocell">${avatar(a.company)}<div>
+          <div class="coname">${esc(a.company)}</div>
+          <div class="corole">${a.link ? `<a href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.role)} ↗</a>` : esc(a.role)}</div>
+          <div class="cometa">${a.resume ? `<span class="tag ${esc(a.resume)}">${esc(a.resume)}</span>` : ""}${a.state ? `<span class="tag">${esc(a.state)}</span>` : ""}</div>
+        </div></div></td>
+        <td class="datecell"><b>${fmt(a.applied)}</b><small>${daysAgo(a.applied)}</small></td>
+        <td><select class="pillsel" data-f="status" style="${pillStyle(ST_COLOR[a.status] || ST_COLOR.Applied)}">${opt(A_STATUS, a.status)}</select></td>
+        <td><select class="pillsel" data-f="outreach" style="${pillStyle(OUT_COLOR[a.outreach] || OUT_COLOR["Not yet"])}">${opt(A_OUT, a.outreach)}</select>
+            <input class="who" data-f="who" value="${esc(a.who)}" placeholder="+ add who"></td>
         <td>${fuCell}</td>
-        <td><input class="note" data-f="notes" value="${esc(a.notes)}" placeholder="—"></td>
-        <td style="white-space:nowrap"><button class="iconbtn" data-act="out" title="Outreach email">✉</button><button class="iconbtn" data-act="edit" title="Edit">✎</button><button class="iconbtn" data-act="del" title="Delete">✕</button></td>
+        <td><input class="note" data-f="notes" value="${esc(a.notes)}" placeholder="+ note"></td>
+        <td class="rowacts"><button class="iconbtn" data-act="out" title="Outreach email">✉</button><button class="iconbtn" data-act="edit" title="Edit">✎</button><button class="iconbtn" data-act="del" title="Delete">✕</button></td>
       </tr>`;
-    }).join("") || `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:40px">No applications yet. Click “Import from sheet” or “+ Add application”.</td></tr>`;
+    }).join("") || `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:48px">No applications yet. Click “Import from sheet” or “+ Add application”.</td></tr>`;
     el("a-count").textContent = `${rows.length} of ${apps.length} applications`;
   }
+
+  el("a-plegend").addEventListener("click", e => {
+    const b = e.target.closest("[data-st]"); if (!b) return;
+    el("a-fs").value = el("a-fs").value === b.dataset.st ? "" : b.dataset.st; renderApps();
+  });
 
   el("a-body").addEventListener("change", e => {
     const f = e.target.dataset.f; if (!f) return;
