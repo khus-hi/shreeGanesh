@@ -3,3 +3,4 @@ openpyxl
 pypdf
 anthropic
 reportlab
+cryptography

@@ -433,12 +433,34 @@ def export_dashboard():
             d["tailored"] = ""  # older rows stored only a file name
         jobs.append(d)
     jobs.sort(key=lambda d: str(d.get("found", "")), reverse=True)
-    DASHBOARD_DATA.parent.mkdir(exist_ok=True)
-    DASHBOARD_DATA.write_text(json.dumps({
+    payload = json.dumps({
         "updated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "top_match": MIN_MATCH_FOR_ALERT,
         "jobs": jobs[:DASHBOARD_MAX_JOBS],
-    }, ensure_ascii=False, separators=(",", ":")))
+    }, ensure_ascii=False, separators=(",", ":"))
+    DASHBOARD_DATA.parent.mkdir(exist_ok=True)
+    password = os.getenv("DASHBOARD_PASSWORD")
+    if password:
+        # encrypted: the page asks for the password and decrypts in your browser
+        (DASHBOARD_DATA.parent / "jobs.enc.json").write_text(json.dumps(encrypt(payload, password)))
+        DASHBOARD_DATA.unlink(missing_ok=True)
+    else:
+        DASHBOARD_DATA.write_text(payload)
+
+
+def encrypt(text, password):
+    """AES-256-GCM with a PBKDF2-SHA256 key; matches the WebCrypto code in docs/index.html."""
+    import base64
+    import secrets
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+    salt, iv, iters = secrets.token_bytes(16), secrets.token_bytes(12), 250_000
+    key = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=iters).derive(password.encode())
+    data = AESGCM(key).encrypt(iv, text.encode(), None)
+    b64 = lambda b: base64.b64encode(b).decode()
+    return {"v": 1, "iter": iters, "salt": b64(salt), "iv": b64(iv), "data": b64(data)}
 
 
 def save_new(new):

@@ -52,6 +52,11 @@ After that it runs every hour by itself.
 
 `jobs.xlsx` is still saved in the repo as a backup.
 
+### Keep it private (just for you)
+1. **Password-lock the dashboard:** add a repo secret `DASHBOARD_PASSWORD` with any password you choose. The job data is then encrypted (AES-256) and the page shows only a password box until you unlock it. Tick "Remember on this device" so you only type it once per device.
+2. **Make the repo private:** **Settings → General → Danger Zone → Change visibility → Private**. This hides your resumes and `jobs.xlsx`.
+3. **Keep the dashboard working on a private repo:** GitHub Pages on private repos needs **GitHub Pro**, which is free for students through the **GitHub Student Developer Pack** (education.github.com/pack). The page itself stays reachable by link, but without your password it shows nothing.
+
 ## Google Sheet (optional)
 Every run adds new jobs to a Google Sheet: newest on top, top matches green, "No sponsorship" in red. Your edits, like the Status column, are never overwritten. One-time setup, about 3 minutes:
 1. Create a new Google Sheet (sheets.new) and name it e.g. **Job Scanner**.
@@ -72,5 +77,5 @@ The next run fills the sheet, including all jobs found so far. Test the link by 
 - H-1B History column: fills in only if you add a USCIS H-1B Employer Data Hub CSV as `h1b_employers.csv`
 
 ## Limits
-- This repo is **public**: resumes, `jobs.xlsx` and tailored resumes are visible to anyone. Public repos get unlimited free Actions minutes.
+- If the repo is **public**, resumes and `jobs.xlsx` are visible to anyone (see *Keep it private*). Private repos get a monthly Actions-minutes allowance (2,000 on Free, 3,000 on Pro); hourly runs use roughly 1–3 minutes each.
 - Match % is keyword-based. Use it to rank jobs, not as a final answer.

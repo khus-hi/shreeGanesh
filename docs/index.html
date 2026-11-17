@@ -85,6 +85,14 @@
   .more { display: block; margin: 16px auto 40px; }
   footer { color: var(--muted); font-size: 12.5px; text-align: center; padding: 10px 0 30px; }
   footer button { background: none; border: none; color: var(--navy); cursor: pointer; font: inherit; text-decoration: underline; }
+  .lock { position: fixed; inset: 0; background: var(--navy); display: grid; place-items: center; z-index: 10; padding: 20px; }
+  .lock form { background: #fff; border-radius: 16px; padding: 28px; width: 100%; max-width: 360px; box-shadow: 0 20px 50px rgba(0,0,0,.25); }
+  .lock h2 { font: 600 22px/1.2 Georgia, "Charter", serif; margin: 0 0 4px; color: var(--navy); }
+  .lock p { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
+  .lock input[type=password] { width: 100%; height: 42px; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; font: inherit; }
+  .lock label { display: flex; gap: 8px; align-items: center; font-size: 13.5px; color: var(--muted); margin: 12px 0 16px; }
+  .lock .btn { width: 100%; justify-content: center; height: 40px; font-size: 15px; }
+  .lock .err { color: var(--red); font-size: 13.5px; min-height: 18px; margin: 8px 0 0; }
   @media (max-width: 900px) {
     .filters { grid-template-columns: 1fr 1fr; }
     .filters .search { grid-column: 1 / -1; }
@@ -100,6 +108,17 @@
 </style>
 </head>
 <body>
+<div class="lock" id="lock" hidden>
+  <form id="lock-form" autocomplete="on">
+    <h2>Data Job Board</h2>
+    <p>Enter your dashboard password.</p>
+    <input type="text" name="username" value="job-board" autocomplete="username" hidden>
+    <input type="password" id="pw" autocomplete="current-password" placeholder="Password" required autofocus>
+    <label><input type="checkbox" id="remember" checked> Remember on this device</label>
+    <button class="btn primary" type="submit">Unlock</button>
+    <div class="err" id="lock-err"></div>
+  </form>
+</div>
 <header>
   <div class="wrap top">
     <h1>Data Job Board</h1>
@@ -326,17 +345,53 @@
     catch (err) { alert("That file couldn't be read."); }
   });
 
-  // load data (cache-busted so you always get the latest scan)
-  fetch(`jobs.json?t=${Date.now()}`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(d => {
+  // ---------- load data ----------
+  function start(d) {
     jobs = d.jobs || []; topMatch = d.top_match || 60;
     el("updated").textContent = `Updated ${ago(d.updated)} · ${jobs.length} jobs`;
     fillSelect(el("f-state"), jobs.flatMap(j => String(j.state).split(/,\s*/)));
     fillSelect(el("f-metro"), jobs.flatMap(j => String(j.metro).split(/,\s*/)));
     render();
-  }).catch(() => {
+  }
+
+  const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  async function decrypt(enc, password) {
+    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey({name: "PBKDF2", salt: b64(enc.salt), iterations: enc.iter, hash: "SHA-256"},
+      base, {name: "AES-GCM", length: 256}, false, ["decrypt"]);
+    const plain = await crypto.subtle.decrypt({name: "AES-GCM", iv: b64(enc.iv)}, key, b64(enc.data));
+    return JSON.parse(new TextDecoder().decode(plain));
+  }
+
+  const PW_KEY = "jobboard.pw.v1";
+  function locked(enc) {
+    let saved = null;
+    try { saved = localStorage.getItem(PW_KEY); } catch (e) {}
+    const tryPw = async (pw, remember) => {
+      try {
+        const d = await decrypt(enc, pw);
+        try { remember ? localStorage.setItem(PW_KEY, pw) : localStorage.removeItem(PW_KEY); } catch (e) {}
+        el("lock").hidden = true; start(d); return true;
+      } catch (e) { return false; }
+    };
+    const ask = () => { el("lock").hidden = false; el("pw").focus(); };
+    el("lock-form").addEventListener("submit", async e => {
+      e.preventDefault(); el("lock-err").textContent = "Unlocking…";
+      if (!(await tryPw(el("pw").value, el("remember").checked))) { el("lock-err").textContent = "Wrong password."; el("pw").select(); }
+    });
+    if (saved) tryPw(saved, true).then(ok => ok || ask()); else ask();
+  }
+
+  function noData() {
     el("updated").textContent = "Waiting for the first scan";
     el("list").innerHTML = `<div class="empty">No jobs yet. The scanner fills this page after its first run (it runs every hour).</div>`;
     ["s-new", "s-top", "s-applied", "s-all"].forEach(id => el(id).textContent = "0");
+  }
+
+  // cache-busted so you always get the latest scan; encrypted data takes priority
+  fetch(`jobs.enc.json?t=${Date.now()}`).then(r => r.ok ? r.json() : null).catch(() => null).then(enc => {
+    if (enc && enc.data) return locked(enc);
+    return fetch(`jobs.json?t=${Date.now()}`).then(r => { if (!r.ok) throw 0; return r.json(); }).then(start).catch(noData);
   });
 })();
 </script>
