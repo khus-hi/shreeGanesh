@@ -93,10 +93,53 @@
   .lock label { display: flex; gap: 8px; align-items: center; font-size: 13.5px; color: var(--muted); margin: 12px 0 16px; }
   .lock .btn { width: 100%; justify-content: center; height: 40px; font-size: 15px; }
   .lock .err { color: var(--red); font-size: 13.5px; min-height: 18px; margin: 8px 0 0; }
+  .switch { display: inline-flex; background: rgba(255,255,255,.12); border-radius: 10px; padding: 3px; margin-top: 14px; }
+  .switch button { border: 0; background: none; color: #fff; font: inherit; font-size: 14px; padding: 7px 16px; border-radius: 8px; cursor: pointer; opacity: .85; }
+  .switch button.on { background: #fff; color: var(--navy); opacity: 1; font-weight: 600; }
+  .astats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-top: -44px; }
+  .astats .stat small { display: block; color: var(--muted); font-size: 12px; }
+  .astats .warn b { color: var(--red); }
+  .atools { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; margin: 18px 0 10px; }
+  .atools > div { min-width: 150px; }
+  .atools .grow { flex: 1; min-width: 200px; }
+  .atools label { display: block; font-size: 11.5px; color: var(--muted); margin: 0 0 3px 2px; text-transform: uppercase; letter-spacing: .4px; }
+  .tablewrap { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow-x: auto; }
+  #page-apps.wrap { max-width: 1480px; }
+  table.apps { width: 100%; min-width: 1280px; border-collapse: collapse; font-size: 13.5px; }
+  table.apps td.role { min-width: 250px; max-width: 340px; }
+  table.apps td.co { white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+  table.apps td:first-child { white-space: nowrap; }
+  table.apps th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .3px;
+    padding: 10px 10px; border-bottom: 1px solid var(--line); background: #FAFBFC; white-space: nowrap; position: sticky; top: 0; }
+  table.apps td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  table.apps tr:last-child td { border-bottom: 0; }
+  table.apps td select { height: 30px; font-size: 13px; padding: 0 6px; min-width: 118px; }
+  table.apps td input.note, table.apps td input.who { width: 100%; min-width: 120px; height: 30px; border: 1px solid transparent; border-radius: 6px; padding: 0 6px; font: inherit; font-size: 13px; background: transparent; }
+  table.apps td input.note:hover, table.apps td input.who:hover, table.apps td input:focus { border-color: var(--line); background: #fff; }
+  table.apps .co { font-weight: 600; }
+  table.apps .role a { color: var(--ink); text-decoration: none; } table.apps .role a:hover { color: var(--navy); text-decoration: underline; }
+  .due { color: var(--red); font-weight: 600; } .done { color: var(--muted); }
+  .iconbtn { border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 15px; padding: 4px 6px; border-radius: 6px; }
+  .iconbtn:hover { background: #F2F4F7; color: var(--ink); }
+  .s-Interviewing td:first-child, .s-OA td:first-child { box-shadow: inset 4px 0 0 #12B76A; }
+  .s-Offer td:first-child { box-shadow: inset 4px 0 0 #027A48; }
+  .s-Rejected, .s-Ghosted, .s-Withdrawn { opacity: .6; }
+  dialog { border: 0; border-radius: 14px; padding: 0; width: min(560px, 94vw); box-shadow: 0 24px 60px rgba(16,24,40,.25); }
+  dialog::backdrop { background: rgba(16,24,40,.45); }
+  dialog form { padding: 22px; }
+  dialog h3 { margin: 0 0 14px; font: 600 19px/1.2 Georgia, "Charter", serif; color: var(--navy); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid2 .full { grid-column: 1 / -1; }
+  dialog label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+  dialog input, dialog textarea { width: 100%; height: 36px; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; font: inherit; font-size: 14px; }
+  dialog textarea { height: 180px; padding: 8px 10px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+  .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .hint { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; }
   @media (max-width: 900px) {
     .filters { grid-template-columns: 1fr 1fr; }
     .filters .search { grid-column: 1 / -1; }
     .stats { grid-template-columns: repeat(2, 1fr); }
+    .astats { grid-template-columns: repeat(3, 1fr); }
   }
   @media (max-width: 600px) {
     .job { grid-template-columns: 46px 1fr; }
@@ -124,9 +167,70 @@
     <h1>Data Job Board</h1>
     <div class="updated" id="updated">Loading…</div>
   </div>
+  <div class="wrap"><div class="switch" role="tablist">
+    <button class="on" data-page="feed" role="tab">Job feed</button>
+    <button data-page="apps" role="tab">My applications</button>
+  </div></div>
 </header>
 
-<main class="wrap">
+<main class="wrap" id="page-apps" hidden>
+  <section class="astats" aria-label="Application summary">
+    <div class="stat"><b id="a-today">0</b><span>Applied today</span><small id="a-today-t">of 15</small></div>
+    <div class="stat"><b id="a-week">0</b><span>This week</span><small id="a-week-t">of 75</small></div>
+    <div class="stat"><b id="a-out">0</b><span>Outreach today</span><small id="a-out-t">of 3</small></div>
+    <div class="stat" id="a-due-box"><b id="a-due">0</b><span>Follow-ups due</span><small>7+ days, no reply</small></div>
+    <div class="stat"><b id="a-int">0</b><span>Interviewing</span><small id="a-offer">0 offers</small></div>
+    <div class="stat"><b id="a-total">0</b><span>Total applied</span><small id="a-rej">0 rejected</small></div>
+  </section>
+
+  <div class="atools">
+    <div class="grow"><label for="aq">Search</label><input id="aq" type="search" placeholder="Company, role, notes…"></div>
+    <div><label for="a-fs">Status</label><select id="a-fs"><option value="">All</option></select></div>
+    <div><label for="a-fo">Reached out</label><select id="a-fo"><option value="">All</option></select></div>
+    <div><label for="a-sort">Sort by</label><select id="a-sort">
+      <option value="date">Date applied (newest)</option><option value="due">Follow-up date</option><option value="company">Company A–Z</option></select></div>
+    <button class="btn primary" id="a-add">+ Add application</button>
+    <button class="btn" id="a-import">Import from sheet</button>
+    <button class="btn" id="a-csv">Download CSV</button>
+  </div>
+
+  <div class="tablewrap">
+    <table class="apps">
+      <thead><tr>
+        <th>Applied</th><th>Company</th><th>Role</th><th>Resume</th><th>State</th><th>Status</th>
+        <th>Reached out?</th><th>Who</th><th>Follow-up</th><th>Notes</th><th></th>
+      </tr></thead>
+      <tbody id="a-body"></tbody>
+    </table>
+  </div>
+  <p class="hint" id="a-count"></p>
+</main>
+
+<dialog id="dlg-app"><form method="dialog" id="f-app">
+  <h3 id="dlg-app-title">Add application</h3>
+  <div class="grid2">
+    <div><label>Company</label><input name="company" required></div>
+    <div><label>Role</label><input name="role" required></div>
+    <div class="full"><label>Job link</label><input name="link" type="url" placeholder="https://"></div>
+    <div><label>Date applied</label><input name="applied" type="date" required></div>
+    <div><label>Resume</label><select name="resume"><option>DA</option><option>DE</option><option>DS</option></select></div>
+    <div><label>State</label><input name="state" maxlength="20" placeholder="MA"></div>
+    <div><label>Status</label><select name="status"></select></div>
+    <div><label>Reached out?</label><select name="outreach"></select></div>
+    <div><label>Who (name / role)</label><input name="who" placeholder="e.g. Priya, hiring manager"></div>
+    <div class="full"><label>Notes</label><input name="notes"></div>
+  </div>
+  <div class="dlg-actions"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="save">Save</button></div>
+</form></dialog>
+
+<dialog id="dlg-import"><form method="dialog">
+  <h3>Import from your sheet</h3>
+  <textarea id="imp-text" placeholder="Copy the rows from your Google Sheet (Date, Company, Role, Category, DS/DA/DE, Link, State, Status, …) and paste them here."></textarea>
+  <p class="hint" id="imp-hint">Paste rows copied straight from Google Sheets or Excel. Duplicates (same company + role) are skipped.</p>
+  <div class="dlg-actions"><button class="btn" value="cancel">Cancel</button><button class="btn primary" value="import" id="imp-go">Import</button></div>
+</form></dialog>
+
+<main class="wrap" id="page-feed">
   <section class="stats" aria-label="Summary">
     <div class="stat" data-go="new"><b id="s-new">–</b><span>New in last 24h</span></div>
     <div class="stat" data-go="top"><b id="s-top">–</b><span>Top matches</span></div>
@@ -172,8 +276,8 @@
 </main>
 
 <footer class="wrap">
-  Updated by the scanner every hour. Your statuses are saved in this browser.
-  <button id="export">Back up statuses</button> · <button id="import">Restore statuses</button>
+  Updated by the scanner every hour. Your statuses and applications are saved in this browser.
+  <button id="export">Back up</button> · <button id="import">Restore</button>
   <input type="file" id="import-file" accept="application/json" hidden>
 </footer>
 
@@ -324,6 +428,11 @@
     if (!e.target.matches("[data-status]")) return;
     const url = e.target.closest(".job").dataset.url;
     if (e.target.value === "New") delete status[url]; else status[url] = e.target.value;
+    if (e.target.value === "Applied") {
+      const j = jobs.find(x => x.url === url);
+      if (j && addApp({company: j.company, role: j.title, resume: j.resume, link: j.url,
+                       state: String(j.state).split(",")[0], applied: todayISO()})) saveApps();
+    }
     saveStatus(); rerender(false);
   });
   el("csv").addEventListener("click", () => {
@@ -336,14 +445,172 @@
   });
   el("export").addEventListener("click", () => {
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(status, null, 1)], {type: "application/json"}));
-    a.download = "job-statuses.json"; a.click();
+    a.href = URL.createObjectURL(new Blob([JSON.stringify({statuses: status, applications: apps}, null, 1)], {type: "application/json"}));
+    a.download = `job-board-backup-${todayISO()}.json`; a.click();
   });
   el("import").addEventListener("click", () => el("import-file").click());
   el("import-file").addEventListener("change", async e => {
-    try { Object.assign(status, JSON.parse(await e.target.files[0].text())); saveStatus(); rerender(); }
+    try {
+      const d = JSON.parse(await e.target.files[0].text());
+      if (d.statuses || d.applications) {
+        Object.assign(status, d.statuses || {}); (d.applications || []).forEach(addApp); saveApps();
+      } else Object.assign(status, d);  // older backups
+      saveStatus(); rerender(); renderApps();
+    }
     catch (err) { alert("That file couldn't be read."); }
   });
+
+  // ---------- My applications ----------
+  const A_KEY = "jobboard.apps.v1";
+  const A_STATUS = ["Applied", "OA / Assessment", "Interviewing", "Offer", "Rejected", "Ghosted", "Withdrawn"];
+  const A_OUT = ["Not yet", "Reached out", "Replied", "Referral"];
+  const TARGET_DAY = 15, TARGET_WEEK = 75, OUT_DAY = 3, FOLLOW_DAYS = 7;
+  let apps = [];
+  try { apps = JSON.parse(localStorage.getItem(A_KEY) || "[]"); } catch (e) { apps = []; }
+  const saveApps = () => { try { localStorage.setItem(A_KEY, JSON.stringify(apps)); } catch (e) {} };
+  const todayISO = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
+  const addDays = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+  const fmt = iso => iso ? new Date(iso + "T12:00:00").toLocaleDateString("en-US", {month: "short", day: "numeric"}) : "";
+  const weekStart = () => { const d = new Date(todayISO() + "T12:00:00"); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toISOString().slice(0, 10); };
+  const keyOf = a => `${a.company}|${a.role}`.toLowerCase().replace(/\W+/g, " ").trim();
+  const uid = () => Math.random().toString(36).slice(2, 10);
+  const followUp = a => addDays(a.applied, FOLLOW_DAYS);
+  const isDue = a => a.status === "Applied" && !["Replied", "Referral"].includes(a.outreach) && followUp(a) <= todayISO();
+
+  [["a-fs", A_STATUS], ["a-fo", A_OUT]].forEach(([id, list]) =>
+    list.forEach(v => { const o = document.createElement("option"); o.textContent = v; el(id).appendChild(o); }));
+  const fApp = el("f-app");
+  A_STATUS.forEach(v => fApp.status.add(new Option(v)));
+  A_OUT.forEach(v => fApp.outreach.add(new Option(v)));
+
+  function addApp(a) {
+    const k = keyOf(a);
+    if (apps.some(x => keyOf(x) === k)) return false;
+    apps.push({id: uid(), status: "Applied", outreach: "Not yet", who: "", notes: "", state: "", resume: "", link: "", ...a});
+    return true;
+  }
+
+  function renderApps() {
+    const t = todayISO(), ws = weekStart();
+    const active = apps.filter(a => a.status !== "Withdrawn");
+    el("a-today").textContent = active.filter(a => a.applied === t).length;
+    el("a-week").textContent = active.filter(a => a.applied >= ws).length;
+    el("a-out").textContent = apps.filter(a => a.outreach_date === t).length;
+    const due = apps.filter(isDue).length;
+    el("a-due").textContent = due; el("a-due-box").classList.toggle("warn", due > 0);
+    el("a-int").textContent = apps.filter(a => ["Interviewing", "OA / Assessment"].includes(a.status)).length;
+    el("a-offer").textContent = `${apps.filter(a => a.status === "Offer").length} offers`;
+    el("a-total").textContent = active.length;
+    el("a-rej").textContent = `${apps.filter(a => a.status === "Rejected").length} rejected`;
+    el("a-today-t").textContent = `of ${TARGET_DAY}`; el("a-week-t").textContent = `of ${TARGET_WEEK}`; el("a-out-t").textContent = `of ${OUT_DAY}`;
+
+    const q = el("aq").value.trim().toLowerCase(), fs = el("a-fs").value, fo = el("a-fo").value, sort = el("a-sort").value;
+    let rows = apps.filter(a => (!fs || a.status === fs) && (!fo || a.outreach === fo) &&
+      (!q || [a.company, a.role, a.notes, a.who, a.state].join(" ").toLowerCase().includes(q)));
+    rows.sort(sort === "company" ? (a, b) => a.company.localeCompare(b.company)
+      : sort === "due" ? (a, b) => followUp(a).localeCompare(followUp(b))
+      : (a, b) => b.applied.localeCompare(a.applied) || a.company.localeCompare(b.company));
+    const opt = (list, cur) => list.map(v => `<option${v === cur ? " selected" : ""}>${v}</option>`).join("");
+    el("a-body").innerHTML = rows.map(a => {
+      const fu = followUp(a), due = isDue(a);
+      const fuCell = !["Applied"].includes(a.status) || ["Replied", "Referral"].includes(a.outreach)
+        ? `<span class="done">—</span>` : `<span class="${due ? "due" : ""}">${due ? "Due " : ""}${fmt(fu)}</span>`;
+      return `<tr class="s-${a.status.split(" ")[0].replace("/", "")}" data-id="${a.id}">
+        <td>${fmt(a.applied)}</td>
+        <td class="co">${esc(a.company)}</td>
+        <td class="role">${a.link ? `<a href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.role)} ↗</a>` : esc(a.role)}</td>
+        <td>${esc(a.resume)}</td><td>${esc(a.state)}</td>
+        <td><select data-f="status">${opt(A_STATUS, a.status)}</select></td>
+        <td><select data-f="outreach">${opt(A_OUT, a.outreach)}</select></td>
+        <td><input class="who" data-f="who" value="${esc(a.who)}" placeholder="—"></td>
+        <td>${fuCell}</td>
+        <td><input class="note" data-f="notes" value="${esc(a.notes)}" placeholder="—"></td>
+        <td style="white-space:nowrap"><button class="iconbtn" data-act="edit" title="Edit">✎</button><button class="iconbtn" data-act="del" title="Delete">✕</button></td>
+      </tr>`;
+    }).join("") || `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:40px">No applications yet. Click “Import from sheet” or “+ Add application”.</td></tr>`;
+    el("a-count").textContent = `${rows.length} of ${apps.length} applications`;
+  }
+
+  el("a-body").addEventListener("change", e => {
+    const f = e.target.dataset.f; if (!f) return;
+    const a = apps.find(x => x.id === e.target.closest("tr").dataset.id); if (!a) return;
+    a[f] = e.target.value;
+    if (f === "outreach" && e.target.value !== "Not yet" && !a.outreach_date) a.outreach_date = todayISO();
+    saveApps(); renderApps();
+  });
+  el("a-body").addEventListener("click", e => {
+    const b = e.target.closest("[data-act]"); if (!b) return;
+    const id = b.closest("tr").dataset.id, a = apps.find(x => x.id === id);
+    if (b.dataset.act === "del") {
+      if (b.dataset.confirm) { apps = apps.filter(x => x.id !== id); saveApps(); renderApps(); }
+      else { b.dataset.confirm = 1; b.textContent = "Delete?"; b.style.color = "var(--red)"; setTimeout(() => { if (b.isConnected) { delete b.dataset.confirm; b.textContent = "✕"; b.style.color = ""; } }, 3000); }
+    } else openApp(a);
+  });
+  ["aq", "a-fs", "a-fo", "a-sort"].forEach(id => el(id).addEventListener(id === "aq" ? "input" : "change", renderApps));
+
+  let editing = null;
+  function openApp(a) {
+    editing = a || null;
+    el("dlg-app-title").textContent = a ? "Edit application" : "Add application";
+    fApp.reset();
+    const v = a || {applied: todayISO(), status: "Applied", outreach: "Not yet", resume: "DS"};
+    ["company", "role", "link", "applied", "resume", "state", "status", "outreach", "who", "notes"].forEach(k => { if (v[k] != null) fApp[k].value = v[k]; });
+    el("dlg-app").showModal();
+  }
+  el("a-add").addEventListener("click", () => openApp(null));
+  el("dlg-app").addEventListener("close", () => {
+    if (el("dlg-app").returnValue !== "save") return;
+    const data = Object.fromEntries(new FormData(fApp));
+    if (editing) { Object.assign(editing, data); if (data.outreach !== "Not yet" && !editing.outreach_date) editing.outreach_date = todayISO(); }
+    else addApp({...data, outreach_date: data.outreach !== "Not yet" ? todayISO() : ""});
+    saveApps(); renderApps();
+  });
+
+  // Import rows pasted from Google Sheets / Excel (tab-separated)
+  const CAT = {"data scientist": "DS", "data analyst": "DA", "data engineer": "DE"};
+  function toISO(s) { const d = new Date(String(s || "").trim()); return isNaN(d) ? "" : new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); }
+  function parseRows(text) {
+    const out = [];
+    text.split(/\r?\n/).forEach(line => {
+      const c = line.split(line.includes("\t") ? "\t" : ",").map(x => x.trim());
+      const company = c[1], role = c[2];
+      if (!company || !role || !toISO(c[0] || c[9])) return;
+      const track = /^(DS|DA|DE)$/i.test(c[4] || "") ? c[4].toUpperCase() : (CAT[(c[3] || "").toLowerCase()] || "");
+      const link = /^https?:\/\//i.test(c[5] || "") ? c[5] : "";
+      const st = A_STATUS.find(s => s.toLowerCase() === (c[7] || "").toLowerCase()) || "Applied";
+      out.push({company, role, resume: track, link, state: (c[6] || "").slice(0, 20), status: st,
+                applied: toISO(c[9]) || toISO(c[0]), notes: c[11] || ""});
+    });
+    return out;
+  }
+  el("imp-text").addEventListener("input", () => {
+    const n = parseRows(el("imp-text").value).length;
+    el("imp-hint").textContent = n ? `${n} application${n === 1 ? "" : "s"} found.` : "Paste rows copied straight from Google Sheets or Excel.";
+  });
+  el("a-import").addEventListener("click", () => { el("imp-text").value = ""; el("dlg-import").showModal(); });
+  el("dlg-import").addEventListener("close", () => {
+    if (el("dlg-import").returnValue !== "import") return;
+    const added = parseRows(el("imp-text").value).filter(addApp).length;
+    saveApps(); renderApps(); el("a-count").textContent += ` · imported ${added}`;
+  });
+  el("a-csv").addEventListener("click", () => {
+    const cols = ["applied", "company", "role", "resume", "state", "status", "outreach", "who", "notes", "link"];
+    const csv = [[...cols, "follow_up"], ...apps.map(a => [...cols.map(c => a[c]), followUp(a)])]
+      .map(r => r.map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], {type: "text/csv"}));
+    a.download = `applications-${todayISO()}.csv`; a.click();
+  });
+
+  // page switch
+  function showPage(pg) {
+    document.querySelectorAll(".switch button").forEach(b => b.classList.toggle("on", b.dataset.page === pg));
+    el("page-feed").hidden = pg !== "feed"; el("page-apps").hidden = pg !== "apps";
+    if (pg === "apps") renderApps();
+    try { localStorage.setItem("jobboard.page", pg); } catch (e) {}
+  }
+  document.querySelectorAll(".switch button").forEach(b => b.addEventListener("click", () => showPage(b.dataset.page)));
+  try { if (localStorage.getItem("jobboard.page") === "apps") showPage("apps"); } catch (e) {}
 
   // ---------- load data ----------
   const MAX_YEARS = 4;
