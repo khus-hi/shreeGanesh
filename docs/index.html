@@ -188,6 +188,38 @@
   .fu.due { background: var(--red-bg); color: var(--red); } .fu.soon { background: #FFF4D6; color: #7A5200; }
   .fu.later { background: #F2F4F7; color: #475467; font-weight: 500; } .fu.none { color: #98A2B3; background: none; }
   table.apps tr.dim td { opacity: .55; }
+  /* ---- Today ---- */
+  .todo { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; margin-top: 14px; }
+  .todo-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .todo-h h2 { margin: 0; font: 600 18px/1.2 Georgia, "Charter", serif; color: var(--navy); }
+  .todo-h .sub { color: var(--muted); font-size: 13.5px; }
+  .todo-list { display: grid; gap: 2px; }
+  .titem { display: grid; grid-template-columns: 38px 1fr auto; gap: 12px; align-items: center; padding: 10px 6px; border-radius: 10px; }
+  .titem:hover { background: #F8FAFD; }
+  .titem .tt { font-weight: 600; } .titem .tm { color: var(--muted); font-size: 13px; margin-top: 1px; }
+  .titem .tchips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
+  .titem .tacts { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  .titem .btn { padding: 6px 10px; font-size: 13px; }
+  .mscore { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+  .mscore.hi { background: var(--green-bg); color: var(--green); } .mscore.mid { background: var(--amber-bg); color: var(--amber); } .mscore.lo { background: #F2F4F7; color: var(--muted); }
+  .alldone { text-align: center; padding: 18px; color: var(--green); font-weight: 600; background: var(--green-bg); border-radius: 10px; }
+  .empty-s { color: var(--muted); padding: 12px 6px; font-size: 14px; }
+  /* ---- already applied ---- */
+  .chip.applied { background: var(--green-bg); color: var(--green); font-weight: 600; }
+  .chip.sameco { background: #FFF4D6; color: #7A5200; font-weight: 600; }
+  .job.done-already { opacity: .6; }
+  /* ---- Insights ---- */
+  .igrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; }
+  .card.wide { grid-column: 1 / -1; }
+  .card h3 { margin: 0 0 12px; font-size: 15px; } .card h3 .muted { color: var(--muted); font-weight: 400; font-size: 12.5px; }
+  .hrow { display: grid; grid-template-columns: 150px 1fr 120px; gap: 10px; align-items: center; margin: 7px 0; font-size: 13.5px; }
+  .hrow .hb { height: 12px; background: #EEF1F6; border-radius: 99px; overflow: hidden; }
+  .hrow .hb span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #2C4F8C, #4C7BD9); }
+  .hrow .hv { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  .hrow .hl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  svg.daily text { font-size: 11px; fill: #667085; font-family: inherit; }
+  @media (max-width: 900px) { .igrid { grid-template-columns: 1fr; } .hrow { grid-template-columns: 110px 1fr 90px; } .titem { grid-template-columns: 34px 1fr; } .titem .tacts { grid-column: 1 / -1; justify-content: flex-start; } }
   @media (max-width: 900px) {
     .filters { grid-template-columns: 1fr 1fr; }
     .filters .search { grid-column: 1 / -1; }
@@ -221,10 +253,56 @@
     <div class="updated" id="updated">Loading…</div>
   </div>
   <div class="wrap"><div class="switch" role="tablist">
+    <button data-page="today" role="tab">Today</button>
     <button class="on" data-page="feed" role="tab">Job feed</button>
     <button data-page="apps" role="tab">My applications</button>
+    <button data-page="insights" role="tab">Insights</button>
   </div></div>
 </header>
+
+<main class="wrap" id="page-today" hidden>
+  <section class="astats" aria-label="Today">
+    <div class="stat goal"><span class="lbl">Applied today</span><div class="num"><b id="t-app">0</b><i>/ 15</i></div><div class="meter"><span id="t-app-bar"></span></div></div>
+    <div class="stat goal"><span class="lbl">Reached out today</span><div class="num"><b id="t-out">0</b><i>/ 3</i></div><div class="meter"><span id="t-out-bar"></span></div></div>
+    <div class="stat" id="t-fu-box"><span class="lbl">Follow-ups due</span><div class="num"><b id="t-fu">0</b></div><small>send a short nudge</small></div>
+    <div class="stat"><span class="lbl">Streak</span><div class="num"><b id="t-streak">0</b><i>days</i></div><small>days in a row you hit 15</small></div>
+    <div class="stat"><span class="lbl">This week</span><div class="num"><b id="t-week">0</b><i>/ 75</i></div><div class="meter"><span id="t-week-bar"></span></div></div>
+    <div class="stat"><span class="lbl">Fresh jobs waiting</span><div class="num"><b id="t-fresh">0</b></div><small>good matches, not applied yet</small></div>
+  </section>
+
+  <section class="todo">
+    <div class="todo-h"><h2>① Apply</h2><span id="t-apply-sub" class="sub"></span></div>
+    <div id="t-apply" class="todo-list"></div>
+  </section>
+  <section class="todo">
+    <div class="todo-h"><h2>② Reach out</h2><span id="t-reach-sub" class="sub"></span></div>
+    <div id="t-reach" class="todo-list"></div>
+  </section>
+  <section class="todo">
+    <div class="todo-h"><h2>③ Follow up</h2><span id="t-follow-sub" class="sub"></span></div>
+    <div id="t-follow" class="todo-list"></div>
+  </section>
+</main>
+
+<main class="wrap" id="page-insights" hidden>
+  <section class="astats" aria-label="Insights summary">
+    <div class="stat"><span class="lbl">Applications</span><div class="num"><b id="i-total">0</b></div><small id="i-total-t">all time</small></div>
+    <div class="stat"><span class="lbl">Response rate</span><div class="num"><b id="i-rate">0%</b></div><small id="i-rate-t">heard back</small></div>
+    <div class="stat"><span class="lbl">Interview rate</span><div class="num"><b id="i-int">0%</b></div><small id="i-int-t">OA, interview or offer</small></div>
+    <div class="stat"><span class="lbl">Daily average</span><div class="num"><b id="i-avg">0</b><i>/ 15</i></div><small>last 14 days</small></div>
+    <div class="stat"><span class="lbl">Outreach coverage</span><div class="num"><b id="i-cov">0%</b></div><small>applications you reached out on</small></div>
+    <div class="stat"><span class="lbl">Best resume</span><div class="num"><b id="i-best">–</b></div><small id="i-best-t">highest response rate</small></div>
+  </section>
+  <div class="igrid">
+    <section class="card wide"><h3>Applications per day <span class="muted">(last 14 days · line = your 15/day target)</span></h3><div id="i-daily"></div></section>
+    <section class="card"><h3>Response rate by resume</h3><div id="i-byres"></div></section>
+    <section class="card"><h3>Does reaching out help?</h3><div id="i-byout"></div><p class="hint" id="i-out-hint"></p></section>
+    <section class="card"><h3>Response rate by source</h3><div id="i-bysrc"></div></section>
+    <section class="card"><h3>Where you're applying</h3><div id="i-bystate"></div></section>
+    <section class="card wide"><h3>Skills you're most often missing <span class="muted">(across the jobs in your feed: learn these, or add them if you already have them)</span></h3><div id="i-gap"></div></section>
+  </div>
+  <p class="hint">Response = any reply: OA, interview, offer, rejection, or a reply to your outreach. Insights get more reliable after ~30 applications.</p>
+</main>
 
 <main class="wrap" id="page-apps" hidden>
   <section class="astats" aria-label="Application summary">
@@ -467,8 +545,17 @@
     return out;
   }
 
+  const coKey = c => String(c || "").toLowerCase().replace(/\b(inc|llc|ltd|corp|corporation|co|the|group|holdings)\b/g, "").replace(/[^a-z0-9]/g, "");
+  function priorApps(j) {
+    const ck = coKey(j.company), rk = keyOf({company: j.company, role: j.title});
+    const same = apps.filter(a => coKey(a.company) === ck || (a.link && a.link === j.url));
+    return {exact: same.find(a => keyOf(a) === rk || (a.link && a.link === j.url)), sameCo: same};
+  }
   function card(j) {
     const st = stOf(j), m = Number(j.match) || 0;
+    const pa = priorApps(j);
+    const prior = pa.exact ? `<span class="chip applied">✓ Applied ${fmt(pa.exact.applied)}</span>`
+      : pa.sameCo.length ? `<span class="chip sameco" title="${esc(pa.sameCo.map(a => a.role).join("; "))}">You applied here before: ${esc(pa.sameCo[0].role)}${pa.sameCo.length > 1 ? ` +${pa.sameCo.length - 1}` : ""}</span>` : "";
     const cls = m >= topMatch ? "hi" : m >= 40 ? "mid" : "lo";
     const sp = j.sponsor === "No" ? `<span class="chip no">No sponsorship</span>`
              : j.sponsor === "Yes" ? `<span class="chip yes">Sponsors visas</span>`
@@ -484,13 +571,13 @@
         ${j.matched ? `<div><span class="k">You have:</span> ${esc(j.matched)}</div>` : ""}
         ${j.missing ? `<div class="miss"><span class="k">Missing:</span> ${esc(j.missing)}</div>` : ""}
       </div></details>` : "";
-    return `<article class="job ${isRecent(j) && st === "New" ? "isnew" : ""} ${st === "Hidden" ? "dim" : ""} st-${st}" data-url="${esc(j.url)}">
+    return `<article class="job ${pa.exact ? "done-already" : ""} ${isRecent(j) && st === "New" && !pa.exact ? "isnew" : ""} ${st === "Hidden" ? "dim" : ""} st-${st}" data-url="${esc(j.url)}">
       <div class="score ${cls}" title="Match with your ${esc(j.resume)} resume">${m}%</div>
       <div>
         <a class="title" href="${esc(j.url)}" target="_blank" rel="noopener">${esc(j.title)}</a>
         <div class="meta"><b>${esc(j.company)}</b> · ${esc(where)}</div>
         <div class="chips">
-          ${isRecent(j) ? `<span class="chip new">New</span>` : ""}
+          ${prior}${isRecent(j) && !pa.exact ? `<span class="chip new">New</span>` : ""}
           <span class="chip resume">Use ${esc(j.resume)} resume</span>
           ${sp}${years}
           <span class="chip">${esc(j.posted)}</span>
@@ -546,8 +633,7 @@
     if (e.target.value === "New") delete status[url]; else status[url] = e.target.value;
     if (e.target.value === "Applied") {
       const j = jobs.find(x => x.url === url);
-      if (j && addApp({company: j.company, role: j.title, resume: j.resume, link: j.url,
-                       state: String(j.state).split(",")[0], applied: todayISO()})) saveApps();
+      if (j && addApp(appFromJob(j))) saveApps();
     }
     saveStatus(); rerender(false);
   });
@@ -590,8 +676,12 @@
   const weekStart = () => { const d = new Date(todayISO() + "T12:00:00"); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toISOString().slice(0, 10); };
   const keyOf = a => `${a.company}|${a.role}`.toLowerCase().replace(/\W+/g, " ").trim();
   const uid = () => Math.random().toString(36).slice(2, 10);
-  const followUp = a => addDays(a.applied, FOLLOW_DAYS);
-  const isDue = a => a.status === "Applied" && !["Replied", "Referral"].includes(a.outreach) && followUp(a) <= todayISO();
+  const followUp = a => addDays(a.followed_up || a.applied, FOLLOW_DAYS);
+  const nextFollow = a => addDays(a.followed_up || a.applied, FOLLOW_DAYS);
+  const isDue = a => a.status === "Applied" && !["Replied", "Referral"].includes(a.outreach) && nextFollow(a) <= todayISO()
+                     && (a.followups || 0) < 2;   // nudge at most twice, then let it go
+  const appFromJob = j => ({company: j.company, role: j.title, resume: j.resume, link: j.url, state: String(j.state).split(",")[0],
+                            applied: todayISO(), source: j.source || "", match: Number(j.match) || 0, story: j.story || "", why: j.why || ""});
 
   [["a-fs", A_STATUS], ["a-fo", A_OUT]].forEach(([id, list]) =>
     list.forEach(v => { const o = document.createElement("option"); o.textContent = v; el(id).appendChild(o); }));
@@ -696,7 +786,7 @@
     if (b.dataset.act === "del") {
       if (b.dataset.confirm) { apps = apps.filter(x => x.id !== id); saveApps(); renderApps(); }
       else { b.dataset.confirm = 1; b.textContent = "Delete?"; b.style.color = "var(--red)"; setTimeout(() => { if (b.isConnected) { delete b.dataset.confirm; b.textContent = "✕"; b.style.color = ""; } }, 3000); }
-    } else if (b.dataset.act === "out") openOutreach({company: a.company, role: a.role, link: a.link, resume: a.resume, matched: "", appId: a.id});
+    } else if (b.dataset.act === "out") openOutreach({company: a.company, role: a.role, link: a.link, resume: a.resume, matched: "", appId: a.id, applied: a.applied, story: a.story, why: a.why}, isDue(a) ? "followup" : "hm");
     else openApp(a);
   });
   ["aq", "a-fs", "a-fo", "a-sort"].forEach(id => el(id).addEventListener(id === "aq" ? "input" : "change", renderApps));
@@ -835,7 +925,7 @@
       "github.com/khus-hi/Drug-Associated-Acute-Kidney-Injury-in-the-ICU", "ICU kidney-injury risk model"),
   };
   const DEFAULT_STORY = {DA: "gbh", DE: "redhat", DS: "experimentation"};
-  const TYPES = [["hm", "Hiring manager"], ["team", "Someone on the team"], ["recruiter", "Recruiter"], ["alum", "BU alum"], ["note", "LinkedIn note"]];
+  const TYPES = [["hm", "Hiring manager"], ["team", "Someone on the team"], ["recruiter", "Recruiter"], ["alum", "BU alum"], ["note", "LinkedIn note"], ["followup", "Follow-up"]];
   let oCtx = null, oType = "hm";
   Object.entries(STORIES).forEach(([k, v]) => el("o-story").add(new Option(v.label, k)));
   const sig = `${ME.name}\n${ME.linkedin} | ${ME.site}`;
@@ -892,6 +982,16 @@ I'm finishing my MS in Data Science there and just applied for the ${c.role} rol
 
 ${sig}`],
       note: ["", `Hi ${n}, I'm Khushi, finishing my MS in Data Science at BU. I just applied for the ${c.role} role at ${c.company} and would love to connect and learn more about the team!`],
+      followup: [`Following up: ${c.role} at ${c.company}`,
+`Hi ${n},
+
+I wanted to follow up on my application for the ${c.role} role at ${c.company}${c.applied ? `, which I sent on ${fmt(c.applied)}` : ""}. I'm still very interested in the role.
+
+Quick reminder of what I'd bring: I ${st.short}. Project: ${st.link}
+
+If it's helpful, I'm happy to share more or set up a quick call. Thanks again for your time!
+
+${sig}`],
     };
     const [subj, body] = T[oType];
     el("o-subject").value = subj; el("o-body").value = body;
@@ -909,8 +1009,8 @@ ${sig}`],
       + ` <a href="https://hunter.io/search/${encodeURIComponent(d)}" target="_blank" rel="noopener">Look up on Hunter ↗</a>`;
   }
 
-  function openOutreach(c) {
-    oCtx = c; oType = "hm";
+  function openOutreach(c, type) {
+    oCtx = c; oType = type || "hm";
     el("o-title").textContent = `Outreach · ${c.company}`;
     const li = q => `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(q)}`;
     const fam = /scien/i.test(c.role) ? "data science" : /engineer/i.test(c.role) ? "data engineering" : "analytics";
@@ -966,9 +1066,10 @@ ${sig}`],
     let a = oCtx.appId && apps.find(x => x.id === oCtx.appId);
     if (!a) a = apps.find(x => keyOf(x) === keyOf({company: oCtx.company, role: oCtx.role}));
     if (!a) { addApp({company: oCtx.company, role: oCtx.role, link: oCtx.link, resume: oCtx.resume, applied: todayISO()}); a = apps[apps.length - 1]; }
-    a.outreach = "Reached out"; a.outreach_date = todayISO();
-    a.who = a.who ? `${a.who}; ${who}` : who;
-    saveApps(); renderApps();
+    if (oType === "followup") { a.followed_up = todayISO(); a.followups = (a.followups || 0) + 1; }
+    else { a.outreach = a.outreach === "Not yet" ? "Reached out" : a.outreach; a.outreach_date = todayISO(); }
+    if (who && !(a.who || "").includes(who)) a.who = a.who ? `${a.who}; ${who}` : who;
+    saveApps(); refreshVisible();
   });
   el("list").addEventListener("click", e => {
     const b = e.target.closest("[data-out]"); if (!b) return;
@@ -976,15 +1077,174 @@ ${sig}`],
     openOutreach({company: j.company, role: j.title, link: j.url, resume: j.resume, matched: j.matched, story: j.story, why: j.why});
   });
 
+  // ---------- Today ----------
+  const PLAN_SIZE = 15;
+  function streak() {
+    let n = 0, d = todayISO();
+    const count = iso => apps.filter(a => a.applied === iso && a.status !== "Withdrawn").length;
+    if (count(d) < TARGET_DAY) d = addDays(d, -1);   // today still in progress
+    while (count(d) >= TARGET_DAY) { n++; d = addDays(d, -1); }
+    return n;
+  }
+  function todayCandidates() {
+    return jobs.filter(j => {
+      const st = stOf(j);
+      if (!["New", "Saved"].includes(st)) return false;
+      if (j.sponsor === "No") return false;
+      return !priorApps(j).exact;
+    }).sort((a, b) => ((b.match >= topMatch) - (a.match >= topMatch)) || (stOf(b) === "Saved") - (stOf(a) === "Saved")
+                      || (isRecent(b) - isRecent(a)) || b.match - a.match);
+  }
+  const mcls = m => m >= topMatch ? "hi" : m >= 40 ? "mid" : "lo";
+
+  function renderToday() {
+    const t = todayISO(), active = apps.filter(a => a.status !== "Withdrawn");
+    const nApp = active.filter(a => a.applied === t).length, nOut = apps.filter(a => a.outreach_date === t).length;
+    const nWeek = active.filter(a => a.applied >= weekStart()).length;
+    el("t-app").textContent = nApp; setMeter("t-app-bar", nApp, TARGET_DAY);
+    el("t-out").textContent = nOut; setMeter("t-out-bar", nOut, OUT_DAY);
+    el("t-week").textContent = nWeek; setMeter("t-week-bar", nWeek, TARGET_WEEK);
+    el("t-streak").textContent = streak();
+    const due = apps.filter(isDue);
+    el("t-fu").textContent = due.length; el("t-fu-box").classList.toggle("warn", due.length > 0);
+    const cands = todayCandidates();
+    el("t-fresh").textContent = cands.length;
+
+    // ① Apply
+    const left = Math.max(0, TARGET_DAY - nApp);
+    el("t-apply-sub").textContent = left ? `${left} to go today · best fresh matches first` : "Daily target hit 🎉 Anything extra is a bonus.";
+    const show = cands.slice(0, Math.max(left, 5));
+    el("t-apply").innerHTML = (left === 0 ? `<div class="alldone">You hit ${TARGET_DAY} applications today. Nice work!</div>` : "")
+      + (show.map(j => {
+        const pa = priorApps(j);
+        return `<div class="titem" data-url="${esc(j.url)}">${avatar(j.company)}
+          <div><div class="tt">${esc(j.title)}</div>
+            <div class="tm">${esc(j.company)} · ${esc(j.location)}</div>
+            <div class="tchips"><span class="mscore ${mcls(j.match)}">${j.match}% match</span><span class="tag ${esc(j.resume)}">Use ${esc(j.resume)}</span>
+              ${j.sponsor === "Yes" ? `<span class="chip yes">Sponsors</span>` : ""}${j.years !== "" && j.years != null ? `<span class="tag">${Number(j.years) === 0 ? "Entry level" : esc(j.years) + "+ yrs"}</span>` : ""}
+              <span class="tag">${esc(j.posted)}</span>${pa.sameCo.length ? `<span class="chip sameco">Applied here before</span>` : ""}</div></div>
+          <div class="tacts"><a class="btn primary" href="${esc(j.url)}" target="_blank" rel="noopener">Apply ↗</a>
+            <button class="btn" data-t="applied">✓ Mark applied</button><button class="btn" data-t="skip" title="Hide this job">Skip</button></div>
+        </div>`;
+      }).join("") || `<div class="empty-s">No fresh matches waiting right now. The scanner adds more every hour; meanwhile check Saved jobs in the Job feed.</div>`);
+
+    // ② Reach out: recent applications you haven't contacted anyone about yet (best matches first)
+    const outLeft = Math.max(0, OUT_DAY - nOut);
+    const reach = apps.filter(a => a.status === "Applied" && a.outreach === "Not yet" && !a.skip_outreach && a.applied >= addDays(t, -5))
+      .sort((a, b) => (b.match || 0) - (a.match || 0) || b.applied.localeCompare(a.applied));
+    el("t-reach-sub").textContent = outLeft ? `${outLeft} to go today · people at companies you applied to in the last 5 days` : "Outreach target hit 🎉";
+    el("t-reach").innerHTML = reach.slice(0, Math.max(outLeft, 3)).map(a => `
+      <div class="titem" data-app="${a.id}">${avatar(a.company)}
+        <div><div class="tt">${esc(a.company)}</div><div class="tm">${esc(a.role)} · applied ${daysAgo(a.applied)}</div></div>
+        <div class="tacts"><button class="btn primary" data-t="email">✉ Write email</button><button class="btn" data-t="later" title="Mark as not needed">Not needed</button></div>
+      </div>`).join("") || `<div class="empty-s">Nobody to reach out to yet. Apply to a few jobs first, then come back here.</div>`;
+
+    // ③ Follow up
+    el("t-follow-sub").textContent = due.length ? `${due.length} with no reply after ${FOLLOW_DAYS}+ days · newest first, aim for a few a day` : "Nothing due";
+    // most recently due first (best odds of a reply), then best match; show 5 unless expanded
+    const dueSorted = due.sort((a, b) => nextFollow(b).localeCompare(nextFollow(a)) || (b.match || 0) - (a.match || 0));
+    const FOLLOW_SHOW = 5, showAllFu = el("t-follow").dataset.all === "1";
+    el("t-follow").innerHTML = dueSorted.slice(0, showAllFu ? dueSorted.length : FOLLOW_SHOW).map(a => `
+      <div class="titem" data-app="${a.id}">${avatar(a.company)}
+        <div><div class="tt">${esc(a.company)}</div><div class="tm">${esc(a.role)} · applied ${fmt(a.applied)}${a.followups ? ` · nudged ${a.followups}×` : ""}${a.who ? ` · ${esc(a.who)}` : ""}</div></div>
+        <div class="tacts"><button class="btn primary" data-t="follow">✉ Write follow-up</button><button class="btn" data-t="ghost">Mark ghosted</button></div>
+      </div>`).join("")
+      + (dueSorted.length > FOLLOW_SHOW ? `<button class="btn more" style="margin:8px auto 0" data-t="fu-all">${showAllFu ? "Show fewer" : `Show all ${dueSorted.length}`}</button>` : "")
+      || `<div class="empty-s">No follow-ups due. You'll see applications here ${FOLLOW_DAYS} days after you apply if you haven't heard back.</div>`;
+  }
+
+  el("page-today").addEventListener("click", e => {
+    const b = e.target.closest("[data-t]"); if (!b) return;
+    if (b.dataset.t === "fu-all") { el("t-follow").dataset.all = el("t-follow").dataset.all === "1" ? "" : "1"; renderToday(); return; }
+    const item = b.closest(".titem");
+    if (item.dataset.url) {
+      const j = jobs.find(x => x.url === item.dataset.url); if (!j) return;
+      if (b.dataset.t === "applied") { status[j.url] = "Applied"; if (addApp(appFromJob(j))) saveApps(); }
+      if (b.dataset.t === "skip") status[j.url] = "Hidden";
+      saveStatus(); renderToday(); return;
+    }
+    const a = apps.find(x => x.id === item.dataset.app); if (!a) return;
+    if (b.dataset.t === "email") openOutreach({company: a.company, role: a.role, link: a.link, resume: a.resume, appId: a.id, applied: a.applied, story: a.story, why: a.why}, "hm");
+    if (b.dataset.t === "follow") openOutreach({company: a.company, role: a.role, link: a.link, resume: a.resume, appId: a.id, applied: a.applied, story: a.story, why: a.why}, "followup");
+    if (b.dataset.t === "later") a.skip_outreach = true;
+    if (b.dataset.t === "ghost") a.status = "Ghosted";
+    saveApps(); renderToday();
+  });
+
+  // ---------- Insights ----------
+  const heardBack = a => ["OA / Assessment", "Interviewing", "Offer", "Rejected"].includes(a.status) || ["Replied", "Referral"].includes(a.outreach);
+  const pct = (n, d) => d ? Math.round(n / d * 100) : 0;
+  function hbars(id, groups, min = 1) {
+    const rows = Object.entries(groups).filter(([, v]) => v.n >= min).sort((a, b) => b[1].n - a[1].n);
+    el(id).innerHTML = rows.map(([k, v]) => `<div class="hrow"><span class="hl" title="${esc(k)}">${esc(k)}</span>
+      <div class="hb"><span style="width:${pct(v.h, v.n)}%"></span></div><span class="hv">${pct(v.h, v.n)}% · ${v.h}/${v.n}</span></div>`).join("")
+      || `<div class="empty-s">Not enough data yet.</div>`;
+  }
+  const groupBy = (list, keyFn) => list.reduce((g, a) => { const k = keyFn(a) || "Unknown"; (g[k] = g[k] || {n: 0, h: 0}).n++; if (heardBack(a)) g[k].h++; return g; }, {});
+
+  function renderInsights() {
+    const active = apps.filter(a => a.status !== "Withdrawn"), t = todayISO();
+    const heard = active.filter(heardBack).length, inter = active.filter(a => ["OA / Assessment", "Interviewing", "Offer"].includes(a.status)).length;
+    el("i-total").textContent = active.length; el("i-total-t").textContent = `${apps.filter(a => a.status === "Rejected").length} rejected · ${apps.filter(a => a.status === "Ghosted").length} ghosted`;
+    el("i-rate").textContent = pct(heard, active.length) + "%"; el("i-rate-t").textContent = `${heard} of ${active.length} heard back`;
+    el("i-int").textContent = pct(inter, active.length) + "%"; el("i-int-t").textContent = `${inter} got an OA, interview or offer`;
+    const days = Array.from({length: 14}, (_, i) => addDays(t, i - 13));
+    const per = days.map(d => active.filter(a => a.applied === d).length);
+    el("i-avg").textContent = (per.reduce((x, y) => x + y, 0) / 14).toFixed(1);
+    const reached = active.filter(a => a.outreach !== "Not yet").length;
+    el("i-cov").textContent = pct(reached, active.length) + "%";
+    const byRes = groupBy(active, a => a.resume);
+    const best = Object.entries(byRes).filter(([k, v]) => k !== "Unknown" && v.n >= 5).sort((a, b) => b[1].h / b[1].n - a[1].h / a[1].n)[0];
+    el("i-best").textContent = best ? best[0] : "–"; el("i-best-t").textContent = best ? `${pct(best[1].h, best[1].n)}% response rate` : "needs 5+ applications per resume";
+
+    // daily chart (SVG)
+    const W = 1000, H = 200, pad = 28, bw = (W - pad * 2) / 14, maxV = Math.max(TARGET_DAY + 3, ...per);
+    const y = v => H - pad - (v / maxV) * (H - pad * 2);
+    el("i-daily").innerHTML = `<svg class="daily" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Applications per day">
+      ${per.map((v, i) => `<rect x="${pad + i * bw + 6}" y="${y(v)}" width="${bw - 12}" height="${H - pad - y(v)}" rx="5" fill="${v >= TARGET_DAY ? "#32D583" : "#4C7BD9"}"><title>${fmt(days[i])}: ${v}</title></rect>
+        <text x="${pad + i * bw + bw / 2}" y="${H - 8}" text-anchor="middle">${fmt(days[i])}</text>
+        ${v ? `<text x="${pad + i * bw + bw / 2}" y="${y(v) - 5}" text-anchor="middle" style="fill:#1B1F27;font-weight:600">${v}</text>` : ""}`).join("")}
+      <line x1="${pad}" x2="${W - pad}" y1="${y(TARGET_DAY)}" y2="${y(TARGET_DAY)}" stroke="#F97066" stroke-dasharray="6 5" stroke-width="2"/>
+      <text x="${W - pad}" y="${y(TARGET_DAY) - 6}" text-anchor="end" style="fill:#B42318">target ${TARGET_DAY}</text></svg>`;
+
+    hbars("i-byres", byRes);
+    const byOut = groupBy(active, a => a.outreach === "Not yet" ? "No outreach" : "Reached out");
+    hbars("i-byout", byOut);
+    const ro = byOut["Reached out"], no = byOut["No outreach"];
+    el("i-out-hint").textContent = ro && no && ro.n >= 3 && no.n >= 3
+      ? (ro.h / ro.n > no.h / no.n ? `Reaching out roughly ${Math.max(1, (ro.h / ro.n) / Math.max(no.h / no.n, 0.01)).toFixed(1)}× your response rate. Keep doing it.` : "No clear difference yet. Keep tracking.")
+      : "Reach out on a few more applications to see the difference.";
+    hbars("i-bysrc", groupBy(active, a => a.source || "Added by you"));
+    const bySt = groupBy(active, a => a.state || "Not set");
+    hbars("i-bystate", Object.fromEntries(Object.entries(bySt).sort((a, b) => b[1].n - a[1].n).slice(0, 8)));
+
+    // skills gap from the feed
+    const miss = {};
+    jobs.forEach(j => String(j.missing || "").split(/,\s*/).filter(s => s && !s.startsWith("(")).forEach(s => miss[s] = (miss[s] || 0) + 1));
+    const top = Object.entries(miss).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    el("i-gap").innerHTML = top.map(([k, n]) => `<div class="hrow"><span class="hl">${esc(k)}</span>
+      <div class="hb"><span style="width:${pct(n, jobs.length)}%;background:linear-gradient(90deg,#B42318,#F97066)"></span></div>
+      <span class="hv">${pct(n, jobs.length)}% of jobs · ${n}</span></div>`).join("") || `<div class="empty-s">No missing skills found in your feed yet.</div>`;
+  }
+
+  function refreshVisible() {
+    if (!el("page-today").hidden) renderToday();
+    if (!el("page-apps").hidden) renderApps();
+    if (!el("page-insights").hidden) renderInsights();
+    if (!el("page-feed").hidden) render();
+  }
+
   // page switch
   function showPage(pg) {
     document.querySelectorAll(".switch button").forEach(b => b.classList.toggle("on", b.dataset.page === pg));
-    el("page-feed").hidden = pg !== "feed"; el("page-apps").hidden = pg !== "apps";
-    if (pg === "apps") renderApps();
+    ["today", "feed", "apps", "insights"].forEach(p => el("page-" + p).hidden = p !== pg);
+    refreshVisible();
     try { localStorage.setItem("jobboard.page", pg); } catch (e) {}
   }
   document.querySelectorAll(".switch button").forEach(b => b.addEventListener("click", () => showPage(b.dataset.page)));
-  try { if (localStorage.getItem("jobboard.page") === "apps") showPage("apps"); } catch (e) {}
+  let startPage = "today";
+  try { startPage = localStorage.getItem("jobboard.page") || "today"; } catch (e) {}
+  showPage(["today", "feed", "apps", "insights"].includes(startPage) ? startPage : "today");
 
   // ---------- load data ----------
   const MAX_YEARS = 4;
@@ -1005,7 +1265,7 @@ ${sig}`],
     jobs = tidy(d.jobs || []); topMatch = d.top_match || 60;
     el("updated").textContent = `Updated ${ago(d.updated)} · ${jobs.length} jobs`;
     fillPlaces();
-    render();
+    render(); refreshVisible();
   }
 
   const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
@@ -1040,7 +1300,7 @@ ${sig}`],
     el("updated").textContent = "Waiting for the first scan";
     el("list").innerHTML = `<div class="empty">No jobs yet. The scanner fills this page after its first run (it runs every hour).</div>`;
     ["s-new", "s-top", "s-applied", "s-all"].forEach(id => el(id).textContent = "0");
-    fillPlaces();
+    fillPlaces(); refreshVisible();
   }
 
   // cache-busted so you always get the latest scan; encrypted data takes priority
