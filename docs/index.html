@@ -143,6 +143,7 @@
   .linkrow a:hover, .pill:hover { border-color: var(--navy-2); background: var(--blue-bg); }
   .pill.on { background: var(--navy); color: #fff; border-color: var(--navy); }
   .grid3 { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; }
+  #dlg-out select { width: 100%; height: 36px; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; font: inherit; font-size: 14px; }
   #o-body { height: 300px; font-family: inherit; font-size: 13.5px; line-height: 1.45; }
   #o-subject { font-weight: 600; }
   .copyok { color: var(--green); font-size: 12.5px; margin-left: 6px; }
@@ -259,7 +260,8 @@
 
   <div class="ostep">3 · Your email</div>
   <div class="grid2">
-    <div class="full"><label>What the role focuses on (edit this so it sounds specific; it's the line that gets replies)</label><input id="o-focus"></div>
+    <div class="full"><label>Story to tell (picked to match this job; change it if another fits better)</label><select id="o-story"></select></div>
+    <div class="full"><label>Why this role: finishes “I just applied for the … role at …, and …” (pulled from the posting; make it specific, it's the line that gets replies)</label><input id="o-focus"></div>
     <div class="full"><label>Subject</label><input id="o-subject"></div>
     <div class="full"><label>Message</label><textarea id="o-body"></textarea></div>
   </div>
@@ -351,6 +353,31 @@
     if (m < 60) return `${m} min ago`;
     const h = Math.round(m / 60);
     return h < 24 ? `${h} h ago` : `${Math.round(h / 24)} d ago`;
+  }
+
+  const STATES = {AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado", CT: "Connecticut",
+    DE: "Delaware", DC: "District of Columbia", FL: "Florida", GA: "Georgia", HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana",
+    IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland", MA: "Massachusetts", MI: "Michigan",
+    MN: "Minnesota", MS: "Mississippi", MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire",
+    NJ: "New Jersey", NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio", OK: "Oklahoma",
+    OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee", TX: "Texas",
+    UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming"};
+  const METROS = ["SF Bay Area", "Seattle", "New York City", "Boston", "Austin", "Los Angeles", "San Diego", "Washington DC",
+    "Chicago", "Denver/Boulder", "Atlanta", "Dallas", "Houston", "Raleigh-Durham", "Philadelphia", "Pittsburgh", "Minneapolis",
+    "Salt Lake City", "Phoenix", "Portland", "Miami", "Nashville", "Charlotte", "Detroit/Ann Arbor", "Columbus", "Baltimore",
+    "St. Louis", "Kansas City", "Madison", "Richmond", "Tampa", "Las Vegas"];
+  function fillPlaces() {
+    const count = (field, v) => jobs.filter(j => String(j[field]).split(/,\s*/).includes(v) && stOf(j) !== "Hidden").length;
+    const opt = (v, label, n) => `<option value="${esc(v)}">${esc(label)}${n ? `  · ${n}` : ""}</option>`;
+    const cur = [el("f-state").value, el("f-metro").value];
+    el("f-state").innerHTML = `<option value="">All states</option>`
+      + opt("Remote", "Remote (US)", count("state", "Remote"))
+      + opt("US", "US, location not listed", count("state", "US"))
+      + `<option disabled>──────────</option>`
+      + Object.entries(STATES).sort((a, b) => a[1].localeCompare(b[1])).map(([k, v]) => opt(k, `${v} (${k})`, count("state", k))).join("");
+    el("f-metro").innerHTML = `<option value="">All metros</option>`
+      + [...METROS].sort().map(m => opt(m, m, count("metro", m))).join("");
+    [el("f-state").value, el("f-metro").value] = cur;
   }
 
   function fillSelect(sel, values) {
@@ -649,49 +676,98 @@
 
   // ---------- Outreach (cold email in Khushi's style) ----------
   const ME = {name: "Khushi Teli", linkedin: "linkedin.com/in/teli-khushi", site: "khus-hi.github.io"};
+  const S = (tag, short, problem, did, result, link, label) => ({tag, short, problem, did, result, link, label});
   const STORIES = {
-    DE: {
-      short: "built an 11-stage Kubeflow pipeline at Red Hat that cut documentary production time by 85%",
-      problem: "At Red Hat, our team was turning interview recordings into mini-documentaries by hand. Each one took 10+ hours of editing.",
-      did: ["Automated an 11-stage Kubeflow pipeline on Red Hat OpenShift AI, from raw footage to finished video",
-            "Chained speech-to-text, an LLM and text-to-speech stages into one workflow",
-            "Added automated error handling so multi-model runs finish without anyone watching them"],
-      result: "production time down 85%, 10+ hours saved per interview, and a talk on it at DevConf.US 2026.",
-      link: "khus-hi.github.io",
-    },
-    DA: {
-      short: "built the data and dashboard behind GBH News's Gateway Cities reporting",
-      problem: "GBH News journalists needed to compare 260 Massachusetts towns across years, but the data was spread across 10+ separate Census releases.",
-      did: ["Built a Python ETL combining 10+ American Community Survey releases (2010 to 2024) into 20+ socioeconomic indicators",
-            "Built parts of a dashboard tracking immigrant population, income, housing, education and employment across 26 Gateway Cities",
-            "Built a Gemini RAG assistant so reporters can get census answers without digging through raw tables"],
-      result: "one place for GBH reporters to find local trends, presented to MassMutual, GBH and BU Spark!",
-      link: "khus-hi.github.io/project.html?p=gateway-cities-dashboard",
-    },
-    DS: {
-      short: "analyzed 32,487 real A/B tests and showed most declared winners don't hold up",
-      problem: "Teams ship A/B test \"winners\" all the time, but many of those wins are noise.",
-      did: ["Analyzed 32,487 real A/B headline tests: only 7.3% of 5,917 declared winners held up after multiple-testing correction",
-            "Showed winners overstate their lift by 129%, and checking results daily raises false positives from 5% to 19%",
-            "Built it in Python, SQL, dbt and DuckDB with statsmodels"],
-      result: "a Bayesian correction that cut the lift error by 65%.",
-      link: "github.com/khus-hi/experimentation-at-scale",
-    },
+    redhat: S("pipeline automation", "built an 11-stage Kubeflow pipeline at Red Hat that cut documentary production time by 85%",
+      "At Red Hat, our team was turning interview recordings into mini-documentaries by hand. Each one took 10+ hours of editing.",
+      ["Automated an 11-stage Kubeflow pipeline on Red Hat OpenShift AI, from raw footage to finished video",
+       "Chained speech-to-text, an LLM and text-to-speech stages into one workflow",
+       "Added automated error handling so multi-model runs finish without anyone watching them"],
+      "production time down 85%, 10+ hours saved per interview, and a talk on it at DevConf.US 2026.", "khus-hi.github.io", "Red Hat: Kubeflow AI pipeline"),
+    gbh: S("dashboard", "built the data and dashboard behind GBH News's Gateway Cities reporting",
+      "GBH News journalists needed to compare 260 Massachusetts towns across years, but the data was spread across 10+ separate Census releases.",
+      ["Built a Python ETL combining 10+ American Community Survey releases (2010 to 2024) into 20+ socioeconomic indicators",
+       "Built parts of a dashboard tracking immigrant population, income, housing, education and employment across 26 Gateway Cities",
+       "Built a Gemini RAG assistant so reporters can get census answers without digging through raw tables"],
+      "one place for GBH reporters to find local trends, presented to MassMutual, GBH and BU Spark!",
+      "khus-hi.github.io/project.html?p=gateway-cities-dashboard", "GBH News: Census ETL + dashboard"),
+    muckrock: S("data extraction", "turned 100K+ records buried in Army PDF reports into a searchable dataset for MuckRock reporters",
+      "MuckRock reporters were investigating slot-machine revenue on military bases, but the numbers were buried in inconsistent Army PDF reports from 79 bases.",
+      ["Automated PDF-to-CSV extraction of 100K+ records across the FY2020 to FY2024 reports",
+       "Validated the data and analyzed revenue by branch, region and base with SQL",
+       "Served it in Datasette so reporters could query it themselves"],
+      "prep time cut by 60%+, and a searchable dataset for MuckRock's investigation.", "khus-hi.github.io", "MuckRock: PDF records → SQL dataset"),
+    experimentation: S("experimentation", "analyzed 32,487 real A/B tests and showed most declared winners don't hold up",
+      "Teams ship A/B test \"winners\" all the time, but many of those wins are noise.",
+      ["Analyzed 32,487 real A/B headline tests: only 7.3% of 5,917 declared winners held up after multiple-testing correction",
+       "Showed winners overstate their lift by 129%, and checking results daily raises false positives from 5% to 19%",
+       "Built it in Python, SQL, dbt and DuckDB with statsmodels"],
+      "a Bayesian correction that cut the lift error by 65%.", "github.com/khus-hi/experimentation-at-scale", "Experimentation at Scale (A/B tests)"),
+    hrrp_dollars: S("healthcare analytics", "converted Medicare readmission penalties into dollars for 2,945 hospitals",
+      "Medicare publishes hospital readmission penalties only as a payment factor, so you can't see what they actually cost.",
+      ["Joined CMS, cost report and SEC data in SQL (DuckDB) to convert penalties into dollars for 2,945 hospitals, matching CMS exactly",
+       "Built 5 Tableau dashboards, including a lookup for any hospital",
+       "Built an Excel ROI model for a care-transitions program at HCA"],
+      "$316M in FY2026 penalties across 2,302 hospitals, and the 4 public for-profit chains lose $38.4M a year.",
+      "github.com/khus-hi/hrrp-penalties", "Hospital penalties in dollars (SQL, Tableau)"),
+    hrrp_rd: S("causal inference", "tested whether Medicare's readmission penalty works using data on 3,000+ hospitals",
+      "Medicare penalizes hospitals for readmissions, but it wasn't clear the penalty actually changes anything.",
+      ["Ran a regression discontinuity on 71,674 hospital-condition-years across 3,002 hospitals",
+       "Checked the result across every robustness test",
+       "Built it in Python, SQL and DuckDB with statsmodels"],
+      "no measurable effect (+0.03%, 95% CI -0.26% to +0.36%), suggesting the penalty alone doesn't reduce readmissions.",
+      "github.com/khus-hi/hrrp-penalties", "Does Medicare's penalty work? (causal)"),
+    metro_pulse: S("analytics", "built an automated monthly scorecard ranking the 50 largest US metros",
+      "US labor data comes from BLS, BEA, Census and FRED on different schedules, so there was no single view of which metros are gaining momentum.",
+      ["Built an automated monthly scorecard ranking the 50 largest US metros on jobs, unemployment, real wages and openings",
+       "Modeled it in dbt on DuckDB with SQL and Python",
+       "Published 4 Tableau dashboards showing which metros are gaining momentum"],
+      "one up-to-date view of metro momentum. It also found SQL is requested in 63% of 374 analyst job postings.",
+      "github.com/khus-hi/us-metro-economic-pulse", "US Metro Economic Pulse (dbt, Tableau)"),
+    bikeshare: S("forecasting", "measured the impact of 165 new bike-share stations and forecast hourly demand",
+      "Cities adding bike-share stations need to know whether new stations bring new riders or just take them from nearby ones.",
+      ["Measured the impact of 165 new stations with difference-in-differences",
+       "Forecast hourly station demand with LightGBM",
+       "Ranked 35 dense Boston neighborhoods with no station nearby"],
+      "each new station added about 160 weekly rides with only 7.3% taken from stations within 250 m, and forecast error (WAPE) fell from 85.2% to 64.7%.",
+      "github.com/khus-hi/bikeshare-stockouts-siting", "Bike-share siting + forecasting"),
+    job_pipeline: S("data pipeline", "built a daily Airflow + dbt pipeline that keeps a history of job postings",
+      "Job boards keep no history, so there's no record of how skill demand and salaries change over time.",
+      ["Built a daily Airflow 3 pipeline capturing Adzuna postings in a day-partitioned AWS S3 zone",
+       "Made every layer idempotent and modeled star-schema marts in dbt on DuckDB with 32 data tests",
+       "Wrote a PySpark job deduplicating 1,126 raw sightings to 875 distinct jobs, matching dbt row for row"],
+      "a daily, rerunnable record of skill demand and salaries where bad data gets caught early.",
+      "github.com/khus-hi/job-market-data-pipeline", "Job Market Data Pipeline (Airflow, dbt)"),
+    sec_llm: S("LLM extraction", "extracted financials from 150 SEC 10-K filings with a local LLM and measured the accuracy",
+      "SEC 10-K filings are long, unstructured documents, so key numbers are hard to pull out reliably.",
+      ["Ingested 150 10-K filings from SEC EDGAR into AWS S3 with an XBRL-aware parser",
+       "Extracted revenue, net income, headcount and risk factors with a local LLM (qwen3:8b on Ollama) under Pydantic-validated schemas",
+       "Orchestrated it in Airflow with 170+ pytest tests in CI"],
+      "revenue F1 0.92 and employee-count F1 0.94 on a 32-filing gold set.",
+      "github.com/khus-hi/sec-fillings-pipeline", "SEC 10-K extraction with a local LLM"),
+    aki: S("machine learning", "built a model on 65K ICU stays that flags drug-related kidney injury 48 hours early",
+      "Clinicians in the ICU need early warning of drug-related kidney injury while there's still time to act.",
+      ["Built a CatBoost model on 65K ICU stays (MIMIC-IV) with BigQuery SQL and Python",
+       "Flagged patients at risk of drug-related kidney injury within 48 hours",
+       "Explained the model's predictions with SHAP"],
+      "recall nearly doubled (0.37 to 0.77), with ROC-AUC 0.85.",
+      "github.com/khus-hi/Drug-Associated-Acute-Kidney-Injury-in-the-ICU", "ICU kidney-injury risk model"),
   };
+  const DEFAULT_STORY = {DA: "gbh", DE: "redhat", DS: "experimentation"};
   const TYPES = [["hm", "Hiring manager"], ["team", "Someone on the team"], ["recruiter", "Recruiter"], ["alum", "BU alum"], ["note", "LinkedIn note"]];
   let oCtx = null, oType = "hm";
+  Object.entries(STORIES).forEach(([k, v]) => el("o-story").add(new Option(v.label, k)));
   const sig = `${ME.name}\n${ME.linkedin} | ${ME.site}`;
   const firstName = () => (el("o-name").value.trim().split(/\s+/)[0] || "[Name]");
 
   function draft() {
-    const c = oCtx, st = STORIES[c.resume] || STORIES.DS, n = firstName();
-    const focus = el("o-focus").value.trim() || "[what the posting says matters most]";
+    const c = oCtx, st = STORIES[el("o-story").value] || STORIES.experimentation, n = firstName();
+    const why = el("o-focus").value.trim().replace(/[.\s]+$/, "") || "[why this role: something specific from the posting]";
     const T = {
-      hm: [(() => { const f1 = focus.split(/,| and /)[0].trim();
-             return el("o-focus").value.trim() && f1.split(/\s+/).length <= 4 ? `${c.role} at ${c.company}: ${f1} experience` : `${c.role} at ${c.company}`; })(),
+      hm: [`${c.role} at ${c.company}: ${st.tag} experience`,
 `Hi ${n},
 
-I just applied for the ${c.role} role at ${c.company}, and the posting puts a lot of weight on ${focus}.
+I just applied for the ${c.role} role at ${c.company}, and ${why}.
 
 I've done a version of that.
 
@@ -721,7 +797,7 @@ ${sig}`],
       recruiter: [`Application: ${c.role} at ${c.company}`,
 `Hi ${n},
 
-I recently applied for the ${c.role} role at ${c.company} and wanted to introduce myself. I'm finishing my MS in Data Science at Boston University (January 2027), and I was excited to see this opportunity because of its focus on ${focus}.
+I recently applied for the ${c.role} role at ${c.company} and wanted to introduce myself. I'm finishing my MS in Data Science at Boston University (January 2027), and I was excited to see this opportunity because ${why}.
 
 Most recently I ${st.short}. Project: ${st.link}
 
@@ -766,8 +842,15 @@ ${sig}`],
     el("o-types").innerHTML = TYPES.map(([k, l]) => `<button type="button" class="pill${k === oType ? " on" : ""}" data-type="${k}">${l}</button>`).join("");
     el("o-name").value = ""; el("o-to").value = "";
     el("o-domain").value = String(c.company).toLowerCase().replace(/[^a-z0-9]/g, "") + ".com";
-    const skills = String(c.matched || "").split(/,\s*/).filter(Boolean).slice(0, 3);
-    el("o-focus").value = skills.length ? (skills.length > 1 ? skills.slice(0, -1).join(", ") + " and " + skills.slice(-1) : skills[0]) : "";
+    const j = jobs.find(x => x.url && x.url === c.link) || {};
+    const story = c.story || j.story || DEFAULT_STORY[c.resume] || "experimentation";
+    el("o-story").value = STORIES[story] ? story : "experimentation";
+    let why = c.why || j.why || "";
+    if (!why) {
+      const skills = String(c.matched || j.matched || "").split(/,\s*/).filter(Boolean).slice(0, 3);
+      if (skills.length) why = "the posting puts a lot of weight on " + (skills.length > 1 ? skills.slice(0, -1).join(", ") + " and " + skills.slice(-1) : skills[0]);
+    }
+    el("o-focus").value = why;
     draft(); guesses();
     el("dlg-out").showModal();
   }
@@ -783,6 +866,7 @@ ${sig}`],
     el("o-to").value = b.dataset.email; guesses();
   });
   ["o-name", "o-focus"].forEach(id => el(id).addEventListener("input", () => { draft(); guesses(); }));
+  el("o-story").addEventListener("change", draft);
   el("o-domain").addEventListener("input", guesses);
   el("o-copy").addEventListener("click", async () => {
     const text = (oType === "note" ? "" : `Subject: ${el("o-subject").value}\n\n`) + el("o-body").value;
@@ -808,7 +892,7 @@ ${sig}`],
   el("list").addEventListener("click", e => {
     const b = e.target.closest("[data-out]"); if (!b) return;
     const j = jobs.find(x => x.url === b.dataset.out); if (!j) return;
-    openOutreach({company: j.company, role: j.title, link: j.url, resume: j.resume, matched: j.matched});
+    openOutreach({company: j.company, role: j.title, link: j.url, resume: j.resume, matched: j.matched, story: j.story, why: j.why});
   });
 
   // page switch
@@ -839,8 +923,7 @@ ${sig}`],
   function start(d) {
     jobs = tidy(d.jobs || []); topMatch = d.top_match || 60;
     el("updated").textContent = `Updated ${ago(d.updated)} · ${jobs.length} jobs`;
-    fillSelect(el("f-state"), jobs.flatMap(j => String(j.state).split(/,\s*/)));
-    fillSelect(el("f-metro"), jobs.flatMap(j => String(j.metro).split(/,\s*/)));
+    fillPlaces();
     render();
   }
 
@@ -876,6 +959,7 @@ ${sig}`],
     el("updated").textContent = "Waiting for the first scan";
     el("list").innerHTML = `<div class="empty">No jobs yet. The scanner fills this page after its first run (it runs every hour).</div>`;
     ["s-new", "s-top", "s-applied", "s-all"].forEach(id => el(id).textContent = "0");
+    fillPlaces();
   }
 
   // cache-busted so you always get the latest scan; encrypted data takes priority

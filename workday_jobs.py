@@ -28,6 +28,7 @@ from urllib.parse import urlparse
 import requests
 
 from enrich import clean_html, h1b_history, score, sponsorship
+from stories import pick_story, why_line
 from places import HUB_SEARCH_CITIES, STATE_NAMES, metro_of
 from tailor import tailor_resume
 from sources import board_from_link, fetch_board, greenhouse_detail, platform, site_key
@@ -357,6 +358,8 @@ def enrich_job(job):
     job["h1b"] = h1b_history(org, job["company"])
     job.update(score(job["title"], text))
     job["jd_text"] = text
+    job["story"] = pick_story(text, job["title"], job.get("best_resume", ""))
+    job["why"] = why_line(text, job.get("matched", ""))
     if not text:
         job["missing"] = "(no description found)"
     return job
@@ -418,7 +421,9 @@ def load_store():
 
 
 def job_dict(j, now):
-    return dict(zip([KEYS[c] for c in COLUMNS if c in KEYS], [v for c, v in zip(COLUMNS, job_row(j, now)) if c in KEYS]))
+    d = dict(zip([KEYS[c] for c in COLUMNS if c in KEYS], [v for c, v in zip(COLUMNS, job_row(j, now)) if c in KEYS]))
+    d["story"], d["why"] = j.get("story", ""), j.get("why", "")  # for the outreach email
+    return d
 
 
 def dict_row(d):
