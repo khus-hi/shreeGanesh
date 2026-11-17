@@ -107,10 +107,11 @@ NAME_TO_ABBR = {v.lower(): k for k, v in STATES.items()}
 HEADERS = {
     "Content-Type": "application/json",
     "Accept": "application/json",
-    "Accept-Language": "en-US",
-    "User-Agent": "Mozilla/5.0",
+    "Accept-Language": "en-US,en;q=0.9",
+    "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"),
 }
-SITE_RE = re.compile(r"https://([\w-]+\.wd\d+\.myworkdayjobs\.com)/(?:[a-z]{2}-[A-Z]{2}/)?([\w-]+)")
+SITE_RE = re.compile(r"https://([\w-]+\.wd\d+\.myworkdayjobs\.com)/(?:[a-zA-Z]{2}-[a-zA-Z]{2}/)?([\w-]+)")
 
 
 # ---------------- helpers ----------------
@@ -118,7 +119,7 @@ def parse_site(url):
     u = urlparse(url.strip())
     tenant = u.netloc.split(".")[0]
     parts = [p for p in u.path.split("/") if p]
-    if parts and re.fullmatch(r"[a-z]{2}-[A-Z]{2}", parts[0]):
+    if parts and re.fullmatch(r"[a-zA-Z]{2}-[a-zA-Z]{2}", parts[0]):
         parts = parts[1:]
     return f"{u.scheme}://{u.netloc}", tenant, parts[0]
 
@@ -232,8 +233,10 @@ def search_site(url):
     for term in SEARCH_TERMS:
         for page in range(MAX_PAGES_PER_SEARCH):
             body = {"appliedFacets": {}, "limit": 20, "offset": page * 20, "searchText": term}
-            r = requests.post(api, json=body, headers=HEADERS, timeout=20)
-            r.raise_for_status()
+            hdrs = {**HEADERS, "Origin": base, "Referer": f"{base}/en-US/{site}"}
+            r = requests.post(api, json=body, headers=hdrs, timeout=25)
+            if r.status_code >= 400:
+                raise RuntimeError(f"HTTP {r.status_code}: {r.text[:120].strip()}")
             postings = r.json().get("jobPostings", [])
             if not postings:
                 break
@@ -510,6 +513,7 @@ def save_new(new):
 
 def send_email(new):
     to, user, pw = (os.getenv(k) for k in ("ALERT_EMAIL_TO", "GMAIL_USER", "GMAIL_APP_PASSWORD"))
+    user, pw = (user or "").strip(), (pw or "").replace(" ", "").strip()
     if not (to and user and pw and new):
         return
     new = sorted(new, key=lambda j: -j["match"])
@@ -545,9 +549,20 @@ def send_email(new):
 
 
 def disable_broken(state, sites, failed):
-    """Counts consecutive failures per board; comments out boards that keep failing."""
+    """Counts consecutive failures per board; comments out boards that keep failing.
+    If most boards of one platform fail in the same run, that's a platform-wide problem
+    (blocking, API change), not broken links, so those failures aren't counted."""
     fails = state.setdefault("failures", {})
+    by_platform = {}
     for u in sites:
+        by_platform.setdefault(platform(u), []).append(u)
+    systemic = {p for p, us in by_platform.items()
+                if len(us) >= 4 and sum(u in failed for u in us) / len(us) > 0.6}
+    if systemic:
+        print(f"Platform-wide failures on {', '.join(sorted(systemic))}: not counting them toward disabling")
+    for u in sites:
+        if platform(u) in systemic:
+            continue
         fails[u] = fails.get(u, 0) + 1 if u in failed else 0
     dead = {u for u, n in fails.items() if n >= DISABLE_AFTER_FAILURES}
     if not dead:
@@ -578,21 +593,30 @@ def main():
 
     # 1. scan all sites
     print(f"Scanning {len(sites)} job boards...")
-    candidates, failed = [], []
+    candidates, failed, reasons = [], [], {}
     with ThreadPoolExecutor(WORKERS) as pool:
         futures = {pool.submit(scan_any, u): u for u in sites}
         for f in as_completed(futures):
             try:
                 candidates += f.result()
-            except Exception:
+            except Exception as e:
                 failed.append(futures[f])
+                reasons[futures[f]] = f"{type(e).__name__}: {e}"[:160]
 
     disable_broken(state, sites, failed)
 
     # 2. only look closer at jobs we haven't seen before
     store = load_store()
     skip = {d.get("url") for d in store} | set(state.get("rejected", []))
-    fresh = list({j["url"]: j for j in candidates if j["url"] not in skip}.values())
+    sig = lambda c, t, l: re.sub(r"\W+", " ", f"{c}|{t}|{l}".lower()).strip()
+    seen_sig = {sig(d.get("company"), d.get("title"), d.get("location")) for d in store}
+    fresh, batch = [], set()
+    for j in candidates:
+        k = sig(j["company"], j["title"], j["location"])
+        if j["url"] in skip or k in seen_sig or k in batch:
+            continue
+        batch.add(k)
+        fresh.append(j)
 
     # 3. read descriptions + score
     new, rejected = [], []
@@ -630,8 +654,15 @@ def main():
         print(f"  {j['match']:>3}% [{j['best_resume']}] [{j['state']}] {j['company_name']}: "
               f"{j['title']} | {j['source']} | sponsorship: {j['sponsor']}")
     if failed:
-        print("Failed sites:", *failed, sep="\n  ")
-    send_email(new)
+        print("Failed sites:", *[f"{u}  ->  {reasons.get(u, '?')}" for u in failed], sep="\n  ")
+    try:
+        send_email(new)
+    except smtplib.SMTPAuthenticationError:
+        print("EMAIL FAILED: Gmail rejected the login. Check GMAIL_USER (full address) and "
+              "GMAIL_APP_PASSWORD (16-letter app password, not your normal password).")
+    except Exception as e:
+        print(f"EMAIL FAILED ({type(e).__name__}: {e}). Check GMAIL_USER and GMAIL_APP_PASSWORD; "
+              "the app password must come from Google Account -> Security -> App passwords.")
 
 
 if __name__ == "__main__":
