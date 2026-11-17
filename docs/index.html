@@ -346,8 +346,22 @@
   });
 
   // ---------- load data ----------
+  const MAX_YEARS = 4;
+  function tidy(list) {
+    // one card per company + title (oldest find wins); skip jobs asking for more than MAX_YEARS
+    const seen = new Set(), out = [];
+    [...list].sort((a, b) => parseFound(a.found) - parseFound(b.found)).forEach(j => {
+      const y = Number(j.years);
+      if (j.years !== "" && j.years != null && !isNaN(y) && y > MAX_YEARS) return;
+      const k = `${j.company}|${j.title}`.toLowerCase().replace(/\W+/g, " ").trim();
+      if (seen.has(k)) return;
+      seen.add(k); out.push(j);
+    });
+    return out;
+  }
+
   function start(d) {
-    jobs = d.jobs || []; topMatch = d.top_match || 60;
+    jobs = tidy(d.jobs || []); topMatch = d.top_match || 60;
     el("updated").textContent = `Updated ${ago(d.updated)} · ${jobs.length} jobs`;
     fillSelect(el("f-state"), jobs.flatMap(j => String(j.state).split(/,\s*/)));
     fillSelect(el("f-metro"), jobs.flatMap(j => String(j.metro).split(/,\s*/)));
