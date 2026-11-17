@@ -354,16 +354,38 @@ def load_sheet():
     return wb, ws
 
 
-def seen_urls():
-    if not EXCEL_FILE.exists():
-        return set()
-    ws = load_workbook(EXCEL_FILE, read_only=True).active
-    rows = ws.iter_rows(values_only=True)
-    header = list(next(rows, []))
-    if "URL" not in header:
-        return set()
-    i = header.index("URL")
-    return {r[i] for r in rows if r[i]}
+# ---------------- job store ----------------
+# With DASHBOARD_PASSWORD set, ALL job data lives only in docs/jobs.enc.json (encrypted),
+# so nothing readable is committed to a public repo. Without it: docs/jobs.json + jobs.xlsx.
+KEYS = {"Found On": "found", "Match %": "match", "Best Resume": "resume", "Company": "company",
+        "Title": "title", "State": "state", "Metro": "metro", "Location": "location",
+        "Sponsorship": "sponsor", "H-1B History": "h1b", "Years Req": "years",
+        "Matched Skills": "matched", "Missing Skills": "missing", "Posted": "posted",
+        "Source": "source", "URL": "url", "Tailored Resume": "tailored"}
+ENC_FILE = HERE / "docs" / "jobs.enc.json"
+
+
+def load_store():
+    """All jobs found so far, newest first (list of dicts)."""
+    pw = os.getenv("DASHBOARD_PASSWORD")
+    if pw and ENC_FILE.exists():
+        return json.loads(decrypt(json.loads(ENC_FILE.read_text()), pw)).get("jobs", [])
+    if DASHBOARD_DATA.exists():
+        return json.loads(DASHBOARD_DATA.read_text()).get("jobs", [])
+    if EXCEL_FILE.exists():  # migrate from the old spreadsheet
+        ws = load_workbook(EXCEL_FILE, read_only=True).active
+        rows = ws.iter_rows(values_only=True)
+        header = list(next(rows, []))
+        return [{KEYS[h]: ("" if v is None else v) for h, v in zip(header, r) if h in KEYS} for r in rows]
+    return []
+
+
+def job_dict(j, now):
+    return dict(zip([KEYS[c] for c in COLUMNS if c in KEYS], [v for c, v in zip(COLUMNS, job_row(j, now)) if c in KEYS]))
+
+
+def dict_row(d):
+    return [d.get(KEYS[c], "") if c in KEYS else "" for c in COLUMNS]
 
 
 def job_row(j, now):
@@ -395,15 +417,13 @@ def push_to_sheet(rows):
         return False
 
 
-def sync_sheet(state, new):
-    """First time: send everything already in jobs.xlsx. After that: only new jobs."""
+def sync_sheet(state, new, store):
+    """First time: send every job found so far. After that: only new jobs."""
     if not os.getenv("SHEETS_WEBHOOK_URL"):
         return
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    if not state.get("sheet_backfilled") and EXCEL_FILE.exists():
-        ws = load_workbook(EXCEL_FILE, read_only=True).active
-        rows = [list(r) for r in ws.iter_rows(min_row=2, values_only=True)]
-        rows.sort(key=lambda r: -(r[1] or 0))
+    if not state.get("sheet_backfilled"):
+        rows = [dict_row(d) for d in sorted(store, key=lambda d: -(d.get("match") or 0))]
         if push_to_sheet(rows):
             state["sheet_backfilled"] = True
         return
@@ -411,41 +431,33 @@ def sync_sheet(state, new):
         state["sheet_backfilled"] = True
 
 
-def export_dashboard():
-    """Writes docs/jobs.json (all jobs found so far) for the dashboard website."""
-    if not EXCEL_FILE.exists():
-        return
-    ws = load_workbook(EXCEL_FILE, read_only=True).active
-    rows = ws.iter_rows(values_only=True)
-    header = list(next(rows, []))
-    keys = {"Found On": "found", "Match %": "match", "Best Resume": "resume", "Company": "company",
-            "Title": "title", "State": "state", "Metro": "metro", "Location": "location",
-            "Sponsorship": "sponsor", "H-1B History": "h1b", "Years Req": "years",
-            "Matched Skills": "matched", "Missing Skills": "missing", "Posted": "posted",
-            "Source": "source", "URL": "url", "Tailored Resume": "tailored"}
-    repo = os.getenv("GITHUB_REPOSITORY")
-    jobs = []
-    for r in rows:
-        d = {keys[h]: ("" if v is None else v) for h, v in zip(header, r) if h in keys}
-        if not d.get("url"):
-            continue
-        if d.get("tailored") and repo and not str(d["tailored"]).startswith("http"):
-            d["tailored"] = ""  # older rows stored only a file name
-        jobs.append(d)
-    jobs.sort(key=lambda d: str(d.get("found", "")), reverse=True)
+def save_store(jobs):
+    jobs = sorted(jobs, key=lambda d: str(d.get("found", "")), reverse=True)[:DASHBOARD_MAX_JOBS]
     payload = json.dumps({
         "updated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "top_match": MIN_MATCH_FOR_ALERT,
-        "jobs": jobs[:DASHBOARD_MAX_JOBS],
+        "jobs": jobs,
     }, ensure_ascii=False, separators=(",", ":"))
     DASHBOARD_DATA.parent.mkdir(exist_ok=True)
     password = os.getenv("DASHBOARD_PASSWORD")
     if password:
-        # encrypted: the page asks for the password and decrypts in your browser
-        (DASHBOARD_DATA.parent / "jobs.enc.json").write_text(json.dumps(encrypt(payload, password)))
-        DASHBOARD_DATA.unlink(missing_ok=True)
+        ENC_FILE.write_text(json.dumps(encrypt(payload, password)))
+        DASHBOARD_DATA.unlink(missing_ok=True)   # never publish readable job data
+        EXCEL_FILE.unlink(missing_ok=True)
+        EXCEL_FILE.with_name("jobs_old.xlsx").unlink(missing_ok=True)
     else:
         DASHBOARD_DATA.write_text(payload)
+
+
+def decrypt(enc, password):
+    import base64
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+    d = lambda k: base64.b64decode(enc[k])
+    key = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=d("salt"), iterations=enc["iter"]).derive(password.encode())
+    return AESGCM(key).decrypt(d("iv"), d("data"), None).decode()
 
 
 def encrypt(text, password):
@@ -578,7 +590,8 @@ def main():
     disable_broken(state, sites, failed)
 
     # 2. only look closer at jobs we haven't seen before
-    skip = seen_urls() | set(state.get("rejected", []))
+    store = load_store()
+    skip = {d.get("url") for d in store} | set(state.get("rejected", []))
     fresh = list({j["url"]: j for j in candidates if j["url"] not in skip}.values())
 
     # 3. read descriptions + score
@@ -603,9 +616,12 @@ def main():
     state["rejected"] = (state.get("rejected", []) + rejected)[-5000:]
     save_state(state)
 
-    save_new(new)
-    export_dashboard()
-    sync_sheet(state, new)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    store = [job_dict(j, now) for j in new] + store
+    save_store(store)
+    if not os.getenv("DASHBOARD_PASSWORD"):
+        save_new(new)  # spreadsheet copy only when nothing needs to stay private
+    sync_sheet(state, new, store)
     save_state(state)
     top = sum(j["match"] >= MIN_MATCH_FOR_ALERT for j in new)
     print(f"{len(new)} new jobs added, {top} top matches "

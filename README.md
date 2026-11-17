@@ -50,12 +50,14 @@ After that it runs every hour by itself.
 - **Status tracking:** set each job to New / Saved / Applied / Interview / Offer / Rejected / Hidden. Statuses are saved in your browser; use **Back up statuses / Restore statuses** at the bottom to move them to another device.
 - **Download CSV** of whatever you're currently viewing.
 
-`jobs.xlsx` is still saved in the repo as a backup.
 
 ### Keep it private (just for you)
-1. **Password-lock the dashboard:** add a repo secret `DASHBOARD_PASSWORD` with any password you choose. The job data is then encrypted (AES-256) and the page shows only a password box until you unlock it. Tick "Remember on this device" so you only type it once per device.
-2. **Make the repo private:** **Settings → General → Danger Zone → Change visibility → Private**. This hides your resumes and `jobs.xlsx`.
-3. **Keep the dashboard working on a private repo:** GitHub Pages on private repos needs **GitHub Pro**, which is free for students through the **GitHub Student Developer Pack** (education.github.com/pack). The page itself stays reachable by link, but without your password it shows nothing.
+Add a repo secret **`DASHBOARD_PASSWORD`** with any password you choose. Then:
+- All job data is stored **only** in `docs/jobs.enc.json`, encrypted with AES-256. No `jobs.xlsx` or readable job list is committed.
+- The dashboard shows only a password box until you unlock it. Tick "Remember on this device" so you only type it once per device.
+- The repo can stay public; nobody can read your jobs without the password.
+
+Your resume PDFs and `resume_master.json` are **not** stored in the repo; they're listed in `.gitignore`. Keep them on your laptop in `resumes/`. Match scoring uses only `resume_profiles.json`, which holds skill names and nothing personal. If you change your resumes, put the PDFs in `resumes/` and run `python make_profiles.py`, then commit `resume_profiles.json`.
 
 ## Google Sheet (optional)
 Every run adds new jobs to a Google Sheet: newest on top, top matches green, "No sponsorship" in red. Your edits, like the Status column, are never overwritten. One-time setup, about 3 minutes:

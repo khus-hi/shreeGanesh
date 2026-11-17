@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 .DS_Store
+# personal files: keep on your laptop only, never in the public repo
+resumes/*.pdf
+resumes/resume_master.json
