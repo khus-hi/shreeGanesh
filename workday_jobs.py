@@ -401,6 +401,7 @@ def load_sheet():
 
 
 # ---------------- job store ----------------
+COMPANY_SOURCES = {"Workday", "Greenhouse", "Lever", "Ashby"}
 # With DASHBOARD_PASSWORD set, ALL job data lives only in docs/jobs.enc.json (encrypted),
 # so nothing readable is committed to a public repo. Without it: docs/jobs.json + jobs.xlsx.
 KEYS = {"Found On": "found", "Match %": "match", "Best Resume": "resume", "Company": "company",
@@ -429,7 +430,8 @@ def load_store():
 def job_dict(j, now):
     d = dict(zip([KEYS[c] for c in COLUMNS if c in KEYS], [v for c, v in zip(COLUMNS, job_row(j, now)) if c in KEYS]))
     d["story"], d["why"] = j.get("story", ""), j.get("why", "")  # for the outreach email
-    d["posted_at"] = j.get("posted_at", "")  # exact posting time when the platform gives one (UTC)
+    d["posted_at"] = j.get("posted_at", "")
+    d["found_via"] = j.get("found_via", "")  # exact posting time when the platform gives one (UTC)
     return d
 
 
@@ -483,7 +485,8 @@ def sync_sheet(state, new, store):
 def clean_store(jobs):
     """Drops jobs needing more than MAX_YEARS_EXPERIENCE and merges repeats of the same company + title."""
     keep = {}
-    for d in sorted(jobs, key=lambda d: str(d.get("found", ""))):  # oldest first, so the first find wins
+    # company-site versions first (they win over job-board copies), then oldest first
+    for d in sorted(jobs, key=lambda d: (d.get("source") not in COMPANY_SOURCES, str(d.get("found", "")))):
         yrs = d.get("years")
         if isinstance(yrs, (int, float)) and yrs > MAX_YEARS_EXPERIENCE:
             continue
@@ -687,6 +690,7 @@ def main():
         for res in pool.map(run, others):
             candidates += res
         candidates += wd_future.result()
+    # company boards first so they win ties within this run
 
     disable_broken(state, others + wd_batch, failed)
 
@@ -703,11 +707,13 @@ def main():
     skip = {d.get("url") for d in store} | set(state.get("rejected", []))
     sig = lambda c, t: re.sub(r"\W+", " ", f"{c}|{t}".lower()).strip()
     recent = [d for d in store if str(d.get("found", "")) >= (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")]
-    seen_sig = {sig(d.get("company"), d.get("title")) for d in recent}
+    seen_sig = {sig(d.get("company"), d.get("title")) for d in recent if d.get("source") in COMPANY_SOURCES}
+    seen_board = {sig(d.get("company"), d.get("title")) for d in recent if d.get("source") not in COMPANY_SOURCES}
     fresh, batch = [], set()
     for j in candidates:
         k = sig(j["company"], j["title"])
-        if j["url"] in skip or k in seen_sig or k in batch:
+        # a company-site job may replace a job-board copy we saw earlier; job-board copies never replace anything
+        if j["url"] in skip or k in seen_sig or k in batch or (j.get("source") not in COMPANY_SOURCES and k in seen_board):
             continue
         batch.add(k)
         fresh.append(j)

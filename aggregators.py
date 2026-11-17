@@ -7,6 +7,10 @@ Each hourly run grabs the last few hours of postings; the first run backfills 24
 
 from datetime import date
 
+from sources import platform
+
+COMPANY_PLATFORMS = {"workday": "Workday", "greenhouse": "Greenhouse", "lever": "Lever", "ashby": "Ashby"}
+
 SEARCH_TERMS = ["data analyst", "data scientist", "data engineer", "machine learning engineer",
                 "analytics engineer", "business intelligence analyst"]
 
@@ -82,8 +86,11 @@ def fetch_aggregators(keep_title, max_days, hours_old, log=print):
                 if not url:
                     continue
                 desc = r.get("description") if _ok(r.get("description")) else ""
+                # apply link goes to a company career site -> it's a company-site job, not a job-board one
+                plat = COMPANY_PLATFORMS.get(platform(url) or "")
                 out.setdefault(str(url), {
-                    "source": LABEL[site], "company": company, "title": title,
+                    "source": plat or LABEL[site], "found_via": LABEL[site] if plat else "",
+                    "company": company, "title": title,
                     "location": _location(r.get("location"), r.get("is_remote") is True),
                     "posted": posted or "Posted Today", "url": str(url),
                     "description": str(desc),

@@ -219,6 +219,15 @@
   .hrow .hv { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
   .hrow .hl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   svg.daily text { font-size: 11px; fill: #667085; font-family: inherit; }
+  .srcswitch { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: -44px; position: relative; z-index: 1; }
+  #page-feed .stats { margin-top: 12px; }
+  .srcswitch .srow { display: flex; align-items: center; gap: 4px; }
+  .srcswitch button { text-align: left; border: 1px solid var(--line); background: var(--card); border-radius: var(--radius); padding: 10px 14px;
+    font: inherit; font-size: 15px; font-weight: 600; color: var(--ink); cursor: pointer; display: grid; gap: 2px; }
+  .srcswitch button span { font-size: 12px; font-weight: 400; color: var(--muted); }
+  .srcswitch button small { display: inline-block; margin-left: 6px; font-size: 12px; padding: 1px 8px; border-radius: 99px; background: #F2F4F7; color: var(--muted); font-weight: 600; }
+  .srcswitch button.on { border-color: var(--navy); box-shadow: inset 0 0 0 1px var(--navy); }
+  .srcswitch button.on small { background: var(--navy); color: #fff; }
   @media (max-width: 900px) { .igrid { grid-template-columns: 1fr; } .hrow { grid-template-columns: 110px 1fr 90px; } .titem { grid-template-columns: 34px 1fr; } .titem .tacts { grid-column: 1 / -1; justify-content: flex-start; } }
   @media (max-width: 900px) {
     .filters { grid-template-columns: 1fr 1fr; }
@@ -399,6 +408,10 @@
 </form></dialog>
 
 <main class="wrap" id="page-feed">
+  <div class="srcswitch" role="tablist" aria-label="Job source">
+    <button class="on" data-src="company"><div class="srow">Company sites <small id="src-n-company">0</small></div><span>Workday · Greenhouse · Lever · Ashby</span></button>
+    <button data-src="boards"><div class="srow">LinkedIn &amp; Indeed <small id="src-n-boards">0</small></div><span>Indeed · LinkedIn · ZipRecruiter · Google Jobs</span></button>
+  </div>
   <section class="stats" aria-label="Summary">
     <div class="stat" data-go="new"><b id="s-new">–</b><span>New in last 24h</span></div>
     <div class="stat" data-go="top"><b id="s-top">–</b><span>Top matches</span></div>
@@ -548,6 +561,11 @@
     sel.value = cur;
   }
 
+  const COMPANY_SOURCES = ["Workday", "Greenhouse", "Lever", "Ashby"];
+  const isCompanySite = j => COMPANY_SOURCES.includes(j.source);
+  let srcGroup = "company";
+  try { srcGroup = localStorage.getItem("jobboard.src") || "company"; } catch (e) {}
+  const inGroup = j => (srcGroup === "company") === isCompanySite(j);
   function inView(j) {
     const st = stOf(j);
     if (view === "all") return st !== "Hidden";
@@ -562,6 +580,7 @@
     const res = el("f-resume").value, state = el("f-state").value, metro = el("f-metro").value;
     const sp = el("f-sponsor").value, min = Number(el("f-min").value);
     let out = jobs.filter(j => {
+      if (!inGroup(j)) return false;
       if (!inView(j)) return false;
       if (res && j.resume !== res) return false;
       if (state && !String(j.state).split(/,\s*/).includes(state)) return false;
@@ -619,7 +638,7 @@
           <span class="chip resume">Use ${esc(j.resume)} resume</span>
           ${sp}${years}
           <span class="chip" title="${postedMs(j).approx ? "Approximate: when the scanner first found it (this site only gives the date)" : "Exact posting time"}">🕒 ${esc(agoLabel(j))}</span>
-          <span class="chip">${esc(j.source)}</span>
+          <span class="chip">${esc(j.source)}${j.found_via ? ` · via ${esc(j.found_via)}` : ""}</span>
         </div>
         ${skills}
       </div>
@@ -633,6 +652,14 @@
   }
 
   function counts() {
+    const all = jobs;
+    el("src-n-company").textContent = all.filter(j => isCompanySite(j) && stOf(j) !== "Hidden").length;
+    el("src-n-boards").textContent = all.filter(j => !isCompanySite(j) && stOf(j) !== "Hidden").length;
+    document.querySelectorAll(".srcswitch button").forEach(b => b.classList.toggle("on", b.dataset.src === srcGroup));
+    const jobsAll = jobs; jobs = jobs.filter(inGroup);
+    try { countsInner(); } finally { jobs = jobsAll; }
+  }
+  function countsInner() {
     el("s-new").textContent = jobs.filter(j => isRecent(j) && stOf(j) !== "Hidden").length;
     el("s-top").textContent = jobs.filter(j => Number(j.match) >= topMatch && j.sponsor !== "No" && stOf(j) !== "Hidden").length;
     el("s-applied").textContent = jobs.filter(j => ["Applied", "Interview", "Offer"].includes(stOf(j))).length;
@@ -655,6 +682,10 @@
   function rerender(resetPage = true) { if (resetPage) shown = PAGE; render(); }
 
   // events
+  document.querySelectorAll(".srcswitch button").forEach(b => b.addEventListener("click", () => {
+    srcGroup = b.dataset.src; try { localStorage.setItem("jobboard.src", srcGroup); } catch (e) {}
+    view = "all"; rerender();
+  }));
   ["q", "f-resume", "f-state", "f-metro", "f-sponsor", "f-sort", "f-posted"].forEach(id =>
     el(id).addEventListener(id === "q" ? "input" : "change", () => rerender()));
   el("f-min").addEventListener("input", e => { el("f-min-out").textContent = e.target.value + "%"; rerender(); });
@@ -1127,6 +1158,7 @@ ${sig}`],
   function todayCandidates() {
     return jobs.filter(j => {
       const st = stOf(j);
+      if (!isCompanySite(j)) return false;   // LinkedIn & Indeed jobs stay in their own tab
       if (!["New", "Saved"].includes(st)) return false;
       if (j.sponsor === "No") return false;
       return !priorApps(j).exact;
@@ -1289,7 +1321,7 @@ ${sig}`],
   function tidy(list) {
     // one card per company + title (oldest find wins); skip jobs asking for more than MAX_YEARS
     const seen = new Set(), out = [];
-    [...list].sort((a, b) => parseFound(a.found) - parseFound(b.found)).forEach(j => {
+    [...list].sort((a, b) => (isCompanySite(b) - isCompanySite(a)) || parseFound(a.found) - parseFound(b.found)).forEach(j => {
       const y = Number(j.years);
       if (j.years !== "" && j.years != null && !isNaN(y) && y > MAX_YEARS) return;
       const k = `${j.company}|${j.title}`.toLowerCase().replace(/\W+/g, " ").trim();
