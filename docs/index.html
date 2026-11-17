@@ -135,6 +135,17 @@
   dialog textarea { height: 180px; padding: 8px 10px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
   .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
   .hint { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; }
+  #dlg-out { width: min(760px, 96vw); }
+  .ostep { font-size: 12px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: .5px; margin: 16px 0 6px; }
+  .ostep:first-of-type { margin-top: 0; }
+  .linkrow { display: flex; flex-wrap: wrap; gap: 6px; }
+  .linkrow a, .pill { font-size: 13px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; color: var(--navy); background: #fff; cursor: pointer; font-family: inherit; }
+  .linkrow a:hover, .pill:hover { border-color: var(--navy-2); background: var(--blue-bg); }
+  .pill.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .grid3 { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; }
+  #o-body { height: 300px; font-family: inherit; font-size: 13.5px; line-height: 1.45; }
+  #o-subject { font-weight: 600; }
+  .copyok { color: var(--green); font-size: 12.5px; margin-left: 6px; }
   @media (max-width: 900px) {
     .filters { grid-template-columns: 1fr 1fr; }
     .filters .search { grid-column: 1 / -1; }
@@ -228,6 +239,38 @@
   <textarea id="imp-text" placeholder="Copy the rows from your Google Sheet (Date, Company, Role, Category, DS/DA/DE, Link, State, Status, …) and paste them here."></textarea>
   <p class="hint" id="imp-hint">Paste rows copied straight from Google Sheets or Excel. Duplicates (same company + role) are skipped.</p>
   <div class="dlg-actions"><button class="btn" value="cancel">Cancel</button><button class="btn primary" value="import" id="imp-go">Import</button></div>
+</form></dialog>
+
+<dialog id="dlg-out"><form method="dialog" id="f-out">
+  <h3 id="o-title">Outreach</h3>
+
+  <div class="ostep">1 · Find people on LinkedIn</div>
+  <div class="linkrow" id="o-links"></div>
+
+  <div class="ostep">2 · Who are you writing to?</div>
+  <div class="linkrow" id="o-types"></div>
+  <div class="grid3" style="margin-top:10px">
+    <div><label>Their name</label><input id="o-name" placeholder="e.g. Priya Shah"></div>
+    <div><label>Company email domain</label><input id="o-domain" placeholder="company.com"></div>
+    <div><label>Email</label><input id="o-to" type="email" placeholder="pick a guess below or type"></div>
+  </div>
+  <div class="linkrow" id="o-guesses" style="margin-top:8px"></div>
+  <p class="hint">Guesses use the most common company formats; check one with Hunter.io (free account) before sending if you can.</p>
+
+  <div class="ostep">3 · Your email</div>
+  <div class="grid2">
+    <div class="full"><label>What the role focuses on (edit this so it sounds specific; it's the line that gets replies)</label><input id="o-focus"></div>
+    <div class="full"><label>Subject</label><input id="o-subject"></div>
+    <div class="full"><label>Message</label><textarea id="o-body"></textarea></div>
+  </div>
+  <div class="dlg-actions" style="justify-content:space-between;flex-wrap:wrap">
+    <span><button class="btn" type="button" id="o-copy">Copy message</button><span class="copyok" id="o-copied"></span></span>
+    <span style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" value="cancel">Close</button>
+      <button class="btn" type="button" id="o-gmail">Open in Gmail ↗</button>
+      <button class="btn primary" value="done" id="o-done">Mark as reached out</button>
+    </span>
+  </div>
 </form></dialog>
 
 <main class="wrap" id="page-feed">
@@ -385,6 +428,7 @@
       </div>
       <div class="actions">
         <a class="btn primary" href="${esc(j.url)}" target="_blank" rel="noopener">Apply ↗</a>
+        <button class="btn" type="button" data-out="${esc(j.url)}">✉ Outreach</button>
         ${j.tailored ? `<a class="btn" href="${esc(j.tailored)}" target="_blank" rel="noopener">Tailored resume</a>` : ""}
         <select aria-label="Status" data-status>${opts}</select>
       </div>
@@ -525,7 +569,7 @@
         <td><input class="who" data-f="who" value="${esc(a.who)}" placeholder="—"></td>
         <td>${fuCell}</td>
         <td><input class="note" data-f="notes" value="${esc(a.notes)}" placeholder="—"></td>
-        <td style="white-space:nowrap"><button class="iconbtn" data-act="edit" title="Edit">✎</button><button class="iconbtn" data-act="del" title="Delete">✕</button></td>
+        <td style="white-space:nowrap"><button class="iconbtn" data-act="out" title="Outreach email">✉</button><button class="iconbtn" data-act="edit" title="Edit">✎</button><button class="iconbtn" data-act="del" title="Delete">✕</button></td>
       </tr>`;
     }).join("") || `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:40px">No applications yet. Click “Import from sheet” or “+ Add application”.</td></tr>`;
     el("a-count").textContent = `${rows.length} of ${apps.length} applications`;
@@ -544,7 +588,8 @@
     if (b.dataset.act === "del") {
       if (b.dataset.confirm) { apps = apps.filter(x => x.id !== id); saveApps(); renderApps(); }
       else { b.dataset.confirm = 1; b.textContent = "Delete?"; b.style.color = "var(--red)"; setTimeout(() => { if (b.isConnected) { delete b.dataset.confirm; b.textContent = "✕"; b.style.color = ""; } }, 3000); }
-    } else openApp(a);
+    } else if (b.dataset.act === "out") openOutreach({company: a.company, role: a.role, link: a.link, resume: a.resume, matched: "", appId: a.id});
+    else openApp(a);
   });
   ["aq", "a-fs", "a-fo", "a-sort"].forEach(id => el(id).addEventListener(id === "aq" ? "input" : "change", renderApps));
 
@@ -600,6 +645,170 @@
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], {type: "text/csv"}));
     a.download = `applications-${todayISO()}.csv`; a.click();
+  });
+
+  // ---------- Outreach (cold email in Khushi's style) ----------
+  const ME = {name: "Khushi Teli", linkedin: "linkedin.com/in/teli-khushi", site: "khus-hi.github.io"};
+  const STORIES = {
+    DE: {
+      short: "built an 11-stage Kubeflow pipeline at Red Hat that cut documentary production time by 85%",
+      problem: "At Red Hat, our team was turning interview recordings into mini-documentaries by hand. Each one took 10+ hours of editing.",
+      did: ["Automated an 11-stage Kubeflow pipeline on Red Hat OpenShift AI, from raw footage to finished video",
+            "Chained speech-to-text, an LLM and text-to-speech stages into one workflow",
+            "Added automated error handling so multi-model runs finish without anyone watching them"],
+      result: "production time down 85%, 10+ hours saved per interview, and a talk on it at DevConf.US 2026.",
+      link: "khus-hi.github.io",
+    },
+    DA: {
+      short: "built the data and dashboard behind GBH News's Gateway Cities reporting",
+      problem: "GBH News journalists needed to compare 260 Massachusetts towns across years, but the data was spread across 10+ separate Census releases.",
+      did: ["Built a Python ETL combining 10+ American Community Survey releases (2010 to 2024) into 20+ socioeconomic indicators",
+            "Built parts of a dashboard tracking immigrant population, income, housing, education and employment across 26 Gateway Cities",
+            "Built a Gemini RAG assistant so reporters can get census answers without digging through raw tables"],
+      result: "one place for GBH reporters to find local trends, presented to MassMutual, GBH and BU Spark!",
+      link: "khus-hi.github.io/project.html?p=gateway-cities-dashboard",
+    },
+    DS: {
+      short: "analyzed 32,487 real A/B tests and showed most declared winners don't hold up",
+      problem: "Teams ship A/B test \"winners\" all the time, but many of those wins are noise.",
+      did: ["Analyzed 32,487 real A/B headline tests: only 7.3% of 5,917 declared winners held up after multiple-testing correction",
+            "Showed winners overstate their lift by 129%, and checking results daily raises false positives from 5% to 19%",
+            "Built it in Python, SQL, dbt and DuckDB with statsmodels"],
+      result: "a Bayesian correction that cut the lift error by 65%.",
+      link: "github.com/khus-hi/experimentation-at-scale",
+    },
+  };
+  const TYPES = [["hm", "Hiring manager"], ["team", "Someone on the team"], ["recruiter", "Recruiter"], ["alum", "BU alum"], ["note", "LinkedIn note"]];
+  let oCtx = null, oType = "hm";
+  const sig = `${ME.name}\n${ME.linkedin} | ${ME.site}`;
+  const firstName = () => (el("o-name").value.trim().split(/\s+/)[0] || "[Name]");
+
+  function draft() {
+    const c = oCtx, st = STORIES[c.resume] || STORIES.DS, n = firstName();
+    const focus = el("o-focus").value.trim() || "[what the posting says matters most]";
+    const T = {
+      hm: [(() => { const f1 = focus.split(/,| and /)[0].trim();
+             return el("o-focus").value.trim() && f1.split(/\s+/).length <= 4 ? `${c.role} at ${c.company}: ${f1} experience` : `${c.role} at ${c.company}`; })(),
+`Hi ${n},
+
+I just applied for the ${c.role} role at ${c.company}, and the posting puts a lot of weight on ${focus}.
+
+I've done a version of that.
+
+${st.problem}
+
+What I did:
+${st.did.map(d => "• " + d).join("\n")}
+
+The result: ${st.result}
+
+I'd love to bring the same approach to your team. Are you the right person to talk to about this role, or could you point me to who is?
+
+Résumé attached. Project: ${st.link}. Free for a 10-minute call any day this week.
+
+Thanks for your time,
+${sig}`],
+      team: [`Quick question about the ${c.role} team at ${c.company}`,
+`Hi ${n},
+
+I just applied for the ${c.role} role on your team at ${c.company} and would love to hear what the day-to-day is really like.
+
+I'm finishing my MS in Data Science at Boston University (January 2027), and most recently I ${st.short}.
+
+Would you be open to a 15-minute chat this week or next? Totally fine if not. Thanks!
+
+${sig}`],
+      recruiter: [`Application: ${c.role} at ${c.company}`,
+`Hi ${n},
+
+I recently applied for the ${c.role} role at ${c.company} and wanted to introduce myself. I'm finishing my MS in Data Science at Boston University (January 2027), and I was excited to see this opportunity because of its focus on ${focus}.
+
+Most recently I ${st.short}. Project: ${st.link}
+
+I'd love to be considered, and I'm happy to share anything else that would help. Thank you for your time!
+
+${sig}`],
+      alum: [`Fellow Terrier: ${c.role} at ${c.company}`,
+`Hey ${n}, noticed we both went to BU!
+
+I'm finishing my MS in Data Science there and just applied for the ${c.role} role at ${c.company}. I'd love to hear your perspective on the team if you're open to a quick chat this week or next. Let me know. Thanks!
+
+${sig}`],
+      note: ["", `Hi ${n}, I'm Khushi, finishing my MS in Data Science at BU. I just applied for the ${c.role} role at ${c.company} and would love to connect and learn more about the team!`],
+    };
+    const [subj, body] = T[oType];
+    el("o-subject").value = subj; el("o-body").value = body;
+    el("o-subject").closest("div").hidden = oType === "note";
+    el("o-copied").textContent = oType === "note" ? `${body.length}/300 characters` : "";
+  }
+
+  function guesses() {
+    const parts = el("o-name").value.trim().toLowerCase().normalize("NFD").replace(/[^a-z\s-]/g, "").split(/[\s-]+/).filter(Boolean);
+    const d = el("o-domain").value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "");
+    if (parts.length < 2 || !d.includes(".")) { el("o-guesses").innerHTML = ""; return; }
+    const [f, l] = [parts[0], parts[parts.length - 1]];
+    const list = [`${f}.${l}`, `${f}`, `${f[0]}${l}`, `${f}${l}`, `${f}_${l}`, `${f[0]}.${l}`, `${f}${l[0]}`].map(x => `${x}@${d}`);
+    el("o-guesses").innerHTML = list.map(e => `<button type="button" class="pill${el("o-to").value === e ? " on" : ""}" data-email="${esc(e)}">${esc(e)}</button>`).join("")
+      + ` <a href="https://hunter.io/search/${encodeURIComponent(d)}" target="_blank" rel="noopener">Look up on Hunter ↗</a>`;
+  }
+
+  function openOutreach(c) {
+    oCtx = c; oType = "hm";
+    el("o-title").textContent = `Outreach · ${c.company}`;
+    const li = q => `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(q)}`;
+    const fam = /scien/i.test(c.role) ? "data science" : /engineer/i.test(c.role) ? "data engineering" : "analytics";
+    el("o-links").innerHTML = [
+      [`${c.company} ${fam} manager`, "Hiring manager"],
+      [`${c.company} ${c.role}`, "People in this role"],
+      [`${c.company} recruiter`, "Recruiters"],
+      [`${c.company} Boston University`, "BU alumni"],
+    ].map(([q, label]) => `<a href="${li(q)}" target="_blank" rel="noopener">${label} ↗</a>`).join("");
+    el("o-types").innerHTML = TYPES.map(([k, l]) => `<button type="button" class="pill${k === oType ? " on" : ""}" data-type="${k}">${l}</button>`).join("");
+    el("o-name").value = ""; el("o-to").value = "";
+    el("o-domain").value = String(c.company).toLowerCase().replace(/[^a-z0-9]/g, "") + ".com";
+    const skills = String(c.matched || "").split(/,\s*/).filter(Boolean).slice(0, 3);
+    el("o-focus").value = skills.length ? (skills.length > 1 ? skills.slice(0, -1).join(", ") + " and " + skills.slice(-1) : skills[0]) : "";
+    draft(); guesses();
+    el("dlg-out").showModal();
+  }
+
+  el("o-types").addEventListener("click", e => {
+    const b = e.target.closest("[data-type]"); if (!b) return;
+    oType = b.dataset.type;
+    el("o-types").querySelectorAll(".pill").forEach(p => p.classList.toggle("on", p === b));
+    draft();
+  });
+  el("o-guesses").addEventListener("click", e => {
+    const b = e.target.closest("[data-email]"); if (!b) return;
+    el("o-to").value = b.dataset.email; guesses();
+  });
+  ["o-name", "o-focus"].forEach(id => el(id).addEventListener("input", () => { draft(); guesses(); }));
+  el("o-domain").addEventListener("input", guesses);
+  el("o-copy").addEventListener("click", async () => {
+    const text = (oType === "note" ? "" : `Subject: ${el("o-subject").value}\n\n`) + el("o-body").value;
+    try { await navigator.clipboard.writeText(text); el("o-copied").textContent = "Copied ✓"; }
+    catch (e) { el("o-body").select(); el("o-copied").textContent = "Press Cmd+C to copy"; }
+  });
+  el("o-gmail").addEventListener("click", () => {
+    const u = "https://mail.google.com/mail/?view=cm&fs=1" + `&to=${encodeURIComponent(el("o-to").value)}`
+      + `&su=${encodeURIComponent(el("o-subject").value)}&body=${encodeURIComponent(el("o-body").value)}`;
+    window.open(u, "_blank", "noopener");
+  });
+  el("dlg-out").addEventListener("close", () => {
+    if (el("dlg-out").returnValue !== "done" || !oCtx) return;
+    const label = (TYPES.find(t => t[0] === oType) || [, ""])[1];
+    const who = [el("o-name").value.trim(), label].filter(Boolean).join(", ");
+    let a = oCtx.appId && apps.find(x => x.id === oCtx.appId);
+    if (!a) a = apps.find(x => keyOf(x) === keyOf({company: oCtx.company, role: oCtx.role}));
+    if (!a) { addApp({company: oCtx.company, role: oCtx.role, link: oCtx.link, resume: oCtx.resume, applied: todayISO()}); a = apps[apps.length - 1]; }
+    a.outreach = "Reached out"; a.outreach_date = todayISO();
+    a.who = a.who ? `${a.who}; ${who}` : who;
+    saveApps(); renderApps();
+  });
+  el("list").addEventListener("click", e => {
+    const b = e.target.closest("[data-out]"); if (!b) return;
+    const j = jobs.find(x => x.url === b.dataset.out); if (!j) return;
+    openOutreach({company: j.company, role: j.title, link: j.url, resume: j.resume, matched: j.matched});
   });
 
   // page switch
