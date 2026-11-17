@@ -1,0 +1,36 @@
+# One Workday career site URL per line. Lines starting with # are ignored.
+# To add a company: open its careers page, click into the job list, copy the URL
+# up to the site name, e.g. https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite
+# Run discover_companies.py to find more automatically.
+
+https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite
+https://salesforce.wd12.myworkdayjobs.com/External_Career_Site
+https://adobe.wd5.myworkdayjobs.com/external_experienced
+https://capitalone.wd12.myworkdayjobs.com/Capital_One
+https://mastercard.wd1.myworkdayjobs.com/CorporateCareers
+https://walmart.wd5.myworkdayjobs.com/WalmartExternal
+https://intel.wd1.myworkdayjobs.com/External
+https://target.wd5.myworkdayjobs.com/targetcareers
+https://dell.wd1.myworkdayjobs.com/External
+https://disney.wd5.myworkdayjobs.com/disneycareer
+https://cvshealth.wd1.myworkdayjobs.com/CVS_Health_Careers
+https://statestreet.wd1.myworkdayjobs.com/Global
+https://modernatx.wd1.myworkdayjobs.com/M_tx
+
+# Greenhouse / Lever / Ashby boards (auto-discovery adds more)
+https://boards.greenhouse.io/airbnb
+https://boards.greenhouse.io/stripe
+https://boards.greenhouse.io/databricks
+https://boards.greenhouse.io/robinhood
+https://boards.greenhouse.io/figma
+https://boards.greenhouse.io/discord
+https://boards.greenhouse.io/reddit
+https://boards.greenhouse.io/pinterest
+https://boards.greenhouse.io/lyft
+https://boards.greenhouse.io/dropbox
+https://jobs.lever.co/palantir
+https://jobs.lever.co/spotify
+https://jobs.lever.co/plaid
+https://jobs.ashbyhq.com/openai
+https://jobs.ashbyhq.com/notion
+https://jobs.ashbyhq.com/ramp

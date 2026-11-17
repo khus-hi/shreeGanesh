@@ -1,0 +1,3 @@
+Bitstream Charter Type 1 fonts (c0648bt_, c0632bt_, c0649bt_, c0633bt_).
+Contributed by Bitstream Inc. to the X Consortium and distributed freely with X11 / TeX Live.
+Used here only to render the resume PDFs in the same typeface as the original resumes.
