@@ -43,6 +43,7 @@ DASHBOARD_URL = "https://khus-hi.github.io/shreeGanesh/"
 DASHBOARD_MAX_JOBS = 4000  # keep the page fast
 STATE_FILE = HERE / ".scanner_state.json"
 
+MAX_YEARS_EXPERIENCE = 4  # drop jobs that ask for more than this (uses the lowest number a posting mentions)
 MAX_DAYS_OLD = 1          # Workday shows "Posted Today/Yesterday"; dedupe stops repeats
 MAX_PAGES_PER_SEARCH = 3  # 20 jobs per page
 WORKERS = 8               # companies scanned in parallel
@@ -467,7 +468,25 @@ def sync_sheet(state, new, store):
         state["sheet_backfilled"] = True
 
 
+def clean_store(jobs):
+    """Drops jobs needing more than MAX_YEARS_EXPERIENCE and merges repeats of the same company + title."""
+    keep = {}
+    for d in sorted(jobs, key=lambda d: str(d.get("found", ""))):  # oldest first, so the first find wins
+        yrs = d.get("years")
+        if isinstance(yrs, (int, float)) and yrs > MAX_YEARS_EXPERIENCE:
+            continue
+        if isinstance(yrs, str) and yrs.strip().isdigit() and int(yrs) > MAX_YEARS_EXPERIENCE:
+            continue
+        k = re.sub(r"\W+", " ", f"{d.get('company')}|{d.get('title')}".lower()).strip()
+        keep.setdefault(k, d)
+    return list(keep.values())
+
+
 def save_store(jobs):
+    before = len(jobs)
+    jobs = clean_store(jobs)
+    if before != len(jobs):
+        print(f"Cleaned saved jobs: removed {before - len(jobs)} duplicate or 5+ year job(s)")
     jobs = sorted(jobs, key=lambda d: str(d.get("found", "")), reverse=True)[:DASHBOARD_MAX_JOBS]
     payload = json.dumps({
         "updated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -677,7 +696,8 @@ def main():
     new, rejected = [], []
     with ThreadPoolExecutor(WORKERS) as pool:
         for job, res in zip(fresh, pool.map(enrich_job, fresh)):
-            if res is None or (SKIP_NO_SPONSORSHIP and res["sponsor"] == "No"):
+            too_senior = res is not None and res.get("years") is not None and res["years"] > MAX_YEARS_EXPERIENCE
+            if res is None or too_senior or (SKIP_NO_SPONSORSHIP and res["sponsor"] == "No"):
                 rejected.append(job["url"])
             else:
                 new.append(res)
