@@ -30,7 +30,7 @@ https://boards.greenhouse.io/lyft
 https://boards.greenhouse.io/dropbox
 https://jobs.lever.co/palantir
 https://jobs.lever.co/spotify
-https://jobs.lever.co/plaid
+# disabled (failed 3 runs): https://jobs.lever.co/plaid
 https://jobs.ashbyhq.com/openai
 https://jobs.ashbyhq.com/notion
 https://jobs.ashbyhq.com/ramp
