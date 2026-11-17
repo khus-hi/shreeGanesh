@@ -42,6 +42,16 @@ bash setup.sh
 
 After that it runs every hour by itself.
 
+## Google Sheet (live job list, no downloads)
+Every run adds new jobs to a Google Sheet: newest on top, top matches green, "No sponsorship" in red. Your edits, like the Status column, are never overwritten. One-time setup, about 3 minutes:
+1. Create a new Google Sheet (sheets.new) and name it e.g. **Job Scanner**.
+2. **Extensions → Apps Script**. Delete everything there, paste the contents of `google_sheets_script.gs`, and click **Save**.
+3. **Deploy → New deployment →** gear icon **→ Web app**. Set *Execute as*: **Me** and *Who has access*: **Anyone**. Click **Deploy**, then **Authorize access** and allow it. If it says "Google hasn't verified this app", click **Advanced → Go to … (unsafe)**; it's your own script.
+4. Copy the **Web app URL** (ends in `/exec`).
+5. In the GitHub repo, go to **Settings → Secrets and variables → Actions → New repository secret**. Name: `SHEETS_WEBHOOK_URL`, value: the URL.
+
+The next run fills the sheet, including all jobs found so far. Test the link by opening the URL in your browser; it should say "Job scanner sheet is connected."
+
 ## Optional tweaks (top of `workday_jobs.py`)
 - `MIN_MATCH_FOR_ALERT = 60`: what counts as a top match
 - `SKIP_NO_SPONSORSHIP = False`: True drops "no sponsorship" jobs entirely

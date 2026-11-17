@@ -363,6 +363,51 @@ def seen_urls():
     return {r[i] for r in rows if r[i]}
 
 
+def job_row(j, now):
+    repo = os.getenv("GITHUB_REPOSITORY")
+    tailored = j.get("tailored") or ""
+    tailored_link = (f"https://github.com/{repo}/blob/main/{tailored}" if repo and tailored else Path(tailored).name)
+    return [
+        now, j["match"], j["best_resume"], j["company_name"], j["title"], j["state"], j.get("metro", ""), j["location"],
+        j["sponsor"], j["h1b"], j["years"] if j["years"] is not None else "", j["matched"],
+        j["missing"], j["posted"], j["source"], j["url"], tailored_link, "",
+    ]
+
+
+def push_to_sheet(rows):
+    """Sends rows to the Google Sheet web app (google_sheets_script.gs). Needs SHEETS_WEBHOOK_URL."""
+    url = os.getenv("SHEETS_WEBHOOK_URL")
+    if not url or not rows:
+        return True
+    clean = [["" if v is None else v for v in r] for r in rows]
+    try:
+        for i in range(0, len(clean), 500):
+            r = requests.post(url, data=json.dumps({"columns": COLUMNS, "rows": clean[i:i + 500]}),
+                              headers={"Content-Type": "application/json"}, timeout=120)
+            r.raise_for_status()
+            print(f"Google Sheet: {r.json().get('added', '?')} row(s) added")
+        return True
+    except Exception as e:
+        print(f"Google Sheet update failed: {e}")
+        return False
+
+
+def sync_sheet(state, new):
+    """First time: send everything already in jobs.xlsx. After that: only new jobs."""
+    if not os.getenv("SHEETS_WEBHOOK_URL"):
+        return
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    if not state.get("sheet_backfilled") and EXCEL_FILE.exists():
+        ws = load_workbook(EXCEL_FILE, read_only=True).active
+        rows = [list(r) for r in ws.iter_rows(min_row=2, values_only=True)]
+        rows.sort(key=lambda r: -(r[1] or 0))
+        if push_to_sheet(rows):
+            state["sheet_backfilled"] = True
+        return
+    if push_to_sheet([job_row(j, now) for j in sorted(new, key=lambda j: -j["match"])]):
+        state["sheet_backfilled"] = True
+
+
 def save_new(new):
     if not new:
         return
@@ -376,11 +421,9 @@ def save_new(new):
     url_col = COLUMNS.index("URL") + 1
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     for j in sorted(new, key=lambda j: -j["match"]):
-        ws.append([
-            now, j["match"], j["best_resume"], j["company_name"], j["title"], j["state"], j.get("metro", ""), j["location"],
-            j["sponsor"], j["h1b"], j["years"] if j["years"] is not None else "", j["matched"],
-            j["missing"], j["posted"], j["source"], j["url"], Path(j.get("tailored") or "").name, "",
-        ])
+        row = job_row(j, now)
+        row[COLUMNS.index("Tailored Resume")] = Path(j.get("tailored") or "").name
+        ws.append(row)
         r = ws.max_row
         for c in ws[r]:
             c.fill = yellow
@@ -512,6 +555,8 @@ def main():
     save_state(state)
 
     save_new(new)
+    sync_sheet(state, new)
+    save_state(state)
     top = sum(j["match"] >= MIN_MATCH_FOR_ALERT for j in new)
     print(f"{len(new)} new jobs added, {top} top matches "
           f"({len(failed)} sites failed, {time.time() - start:.0f}s)")

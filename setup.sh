@@ -18,6 +18,7 @@ read -rsp "Claude API key (optional, press Enter to skip resume tailoring): " AN
 read -rp "Gmail address: " GMAIL_USER
 read -rsp "Gmail app password (input hidden): " GMAIL_APP_PASSWORD; echo
 read -rp "Send alerts to [$GMAIL_USER]: " ALERT_EMAIL_TO; ALERT_EMAIL_TO=${ALERT_EMAIL_TO:-$GMAIL_USER}
+read -rp "Google Sheet web app URL (optional, see README; Enter to skip): " SHEETS_WEBHOOK_URL
 
 gh secret set SERPAPI_KEY        -R "$REPO" --body "$SERPAPI_KEY"
 if [ -n "$ANTHROPIC_API_KEY" ]; then
@@ -28,6 +29,8 @@ fi
 gh secret set GMAIL_USER         -R "$REPO" --body "$GMAIL_USER"
 gh secret set GMAIL_APP_PASSWORD -R "$REPO" --body "$GMAIL_APP_PASSWORD"
 gh secret set ALERT_EMAIL_TO     -R "$REPO" --body "$ALERT_EMAIL_TO"
+
+[ -n "$SHEETS_WEBHOOK_URL" ] && gh secret set SHEETS_WEBHOOK_URL -R "$REPO" --body "$SHEETS_WEBHOOK_URL"
 
 gh workflow enable scan.yml -R "$REPO" >/dev/null 2>&1 || true
 gh workflow run scan.yml -R "$REPO" && echo "First scan started."
