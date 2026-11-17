@@ -18,7 +18,7 @@ import re
 import smtplib
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -49,7 +49,12 @@ WORKERS = 8               # companies scanned in parallel
 DISABLE_AFTER_FAILURES = 3  # broken board links get switched off automatically
 
 # Workday's search matches titles + descriptions, so a few broad terms are enough
-SEARCH_TERMS = ["data", "analytics", "machine learning"]
+SEARCH_TERMS = ["data", "machine learning"]  # Workday search also matches descriptions
+
+# Workday rate-limits hard (HTTP 429), so Workday sites are checked ONE AT A TIME with pauses,
+# a rotating batch per run. Every site is still checked every few hours.
+WORKDAY_PER_RUN = 12
+WORKDAY_MIN_GAP = 2.0      # seconds between any two Workday requests
 
 TITLE_INCLUDE = re.compile(
     r"\bdata\b|analyst|analytics|scientist|machine learning|\bml\b|\bai\b|business intelligence|\bbi\b",
@@ -80,6 +85,7 @@ DISCOVERY_PLATFORMS = ["myworkdayjobs.com", "boards.greenhouse.io", "jobs.lever.
 DISCOVERY_ROLES = ['"data analyst"', '"data scientist"', '"data engineer"', '"machine learning engineer"',
                    '"analytics engineer"', '"business intelligence"']
 
+EMAIL_ALERTS = False  # set True (plus ALERT_EMAIL_TO, GMAIL_USER, GMAIL_APP_PASSWORD secrets) to get emails
 # Email alert (optional): ALERT_EMAIL_TO, GMAIL_USER, GMAIL_APP_PASSWORD env vars
 # ==========================================
 
@@ -226,6 +232,34 @@ def discover_sites(state):
 
 
 # ---------------- scanning ----------------
+import threading
+
+_wd_lock = threading.Lock()
+_wd_last = [0.0]
+_wd_blocked = [False]
+
+
+def wd_request(method, url, **kw):
+    """All Workday traffic goes through here: one request at a time, a pause between requests,
+    and back-off on HTTP 429. If Workday keeps refusing, stop calling it for this run."""
+    if _wd_blocked[0]:
+        raise RuntimeError("skipped: Workday is rate-limiting this run")
+    kw.setdefault("timeout", 25)
+    for attempt in range(3):
+        with _wd_lock:
+            wait = WORKDAY_MIN_GAP - (time.time() - _wd_last[0])
+            if wait > 0:
+                time.sleep(wait)
+            r = requests.request(method, url, **kw)
+            _wd_last[0] = time.time()
+        if r.status_code != 429:
+            return r
+        retry = r.headers.get("Retry-After", "") if hasattr(r, "headers") else ""
+        time.sleep(min(int(retry) if str(retry).isdigit() else 15 * (attempt + 1), 60))
+    _wd_blocked[0] = True
+    raise RuntimeError("HTTP 429: Workday rate limit (stopped Workday for this run)")
+
+
 def search_site(url):
     base, tenant, site = parse_site(url)
     api = f"{base}/wday/cxs/{tenant}/{site}/jobs"
@@ -234,7 +268,7 @@ def search_site(url):
         for page in range(MAX_PAGES_PER_SEARCH):
             body = {"appliedFacets": {}, "limit": 20, "offset": page * 20, "searchText": term}
             hdrs = {**HEADERS, "Origin": base, "Referer": f"{base}/en-US/{site}"}
-            r = requests.post(api, json=body, headers=hdrs, timeout=25)
+            r = wd_request("POST", api, json=body, headers=hdrs)
             if r.status_code >= 400:
                 raise RuntimeError(f"HTTP {r.status_code}: {r.text[:120].strip()}")
             postings = r.json().get("jobPostings", [])
@@ -260,7 +294,6 @@ def search_site(url):
                     }
             if all(days_old(p.get("postedOn")) > MAX_DAYS_OLD for p in postings):
                 break
-            time.sleep(0.3)
     return list(found.values())
 
 
@@ -289,7 +322,7 @@ def get_details(job):
         except Exception:
             return "", "", [], ""
     try:  # Workday
-        data = requests.get(job["detail_api"], headers=HEADERS, timeout=20).json()
+        data = wd_request("GET", job["detail_api"], headers=HEADERS).json()
     except Exception:
         data = {}
     info = data.get("jobPostingInfo", {}) or {}
@@ -512,6 +545,8 @@ def save_new(new):
 
 
 def send_email(new):
+    if not EMAIL_ALERTS:
+        return
     to, user, pw = (os.getenv(k) for k in ("ALERT_EMAIL_TO", "GMAIL_USER", "GMAIL_APP_PASSWORD"))
     user, pw = (user or "").strip(), (pw or "").replace(" ", "").strip()
     if not (to and user and pw and new):
@@ -542,9 +577,16 @@ def send_email(new):
             msg.attach(part)
     msg["Subject"] = f"{len(top)} top matches / {len(new)} new data jobs"
     msg["From"], msg["To"] = user, to
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
-        s.login(user, pw)
-        s.send_message(msg)
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as s:
+            s.login(user, pw)
+            s.send_message(msg)
+    except (smtplib.SMTPServerDisconnected, OSError) as first:
+        print(f"Gmail port 465 failed ({first}); trying port 587")
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as s:
+            s.ehlo(); s.starttls(); s.ehlo()
+            s.login(user, pw)
+            s.send_message(msg)
     print(f"Emailed {to}")
 
 
@@ -594,25 +636,38 @@ def main():
     # 1. scan all sites
     print(f"Scanning {len(sites)} job boards...")
     candidates, failed, reasons = [], [], {}
-    with ThreadPoolExecutor(WORKERS) as pool:
-        futures = {pool.submit(scan_any, u): u for u in sites}
-        for f in as_completed(futures):
-            try:
-                candidates += f.result()
-            except Exception as e:
-                failed.append(futures[f])
-                reasons[futures[f]] = f"{type(e).__name__}: {e}"[:160]
+    workday = [u for u in sites if platform(u) == "workday"]
+    others = [u for u in sites if platform(u) != "workday"]
+    start_i = state.get("wd_index", 0) % max(len(workday), 1)
+    wd_batch = (workday[start_i:] + workday[:start_i])[:WORKDAY_PER_RUN]
+    state["wd_index"] = start_i + len(wd_batch)
+    print(f"Workday: checking {len(wd_batch)} of {len(workday)} sites this run (one at a time)")
 
-    disable_broken(state, sites, failed)
+    def run(u):
+        try:
+            return scan_any(u)
+        except Exception as e:
+            failed.append(u)
+            reasons[u] = f"{type(e).__name__}: {e}"[:160]
+            return []
+
+    with ThreadPoolExecutor(WORKERS) as pool:
+        wd_future = pool.submit(lambda: [j for u in wd_batch for j in run(u)])  # sequential lane
+        for res in pool.map(run, others):
+            candidates += res
+        candidates += wd_future.result()
+
+    disable_broken(state, others + wd_batch, failed)
 
     # 2. only look closer at jobs we haven't seen before
     store = load_store()
     skip = {d.get("url") for d in store} | set(state.get("rejected", []))
-    sig = lambda c, t, l: re.sub(r"\W+", " ", f"{c}|{t}|{l}".lower()).strip()
-    seen_sig = {sig(d.get("company"), d.get("title"), d.get("location")) for d in store}
+    sig = lambda c, t: re.sub(r"\W+", " ", f"{c}|{t}".lower()).strip()
+    recent = [d for d in store if str(d.get("found", "")) >= (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")]
+    seen_sig = {sig(d.get("company"), d.get("title")) for d in recent}
     fresh, batch = [], set()
     for j in candidates:
-        k = sig(j["company"], j["title"], j["location"])
+        k = sig(j["company"], j["title"])
         if j["url"] in skip or k in seen_sig or k in batch:
             continue
         batch.add(k)
