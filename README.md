@@ -5,7 +5,7 @@ Runs on its own every hour in GitHub Actions. Each run:
 2. **Scans every board** for new US data jobs: analyst / scientist / engineer / ML / BI, posted today or yesterday, no senior/manager/intern titles.
 3. **Scores each job** against your resumes and fills in Match %, Best Resume (DA/DE/DS), Sponsorship, Years Req, and Matched/Missing Skills.
 4. **Tailors your resume with Claude** for the top matches (up to 10 per run) and saves them in `tailored/<date>/`, linked from Excel.
-5. **Emails you** top matches first, with `jobs.xlsx` and the tailored resume PDFs attached.
+5. **Updates your dashboard** at https://khus-hi.github.io/shreeGanesh/ and **emails you** top matches with a link to it.
 
 ### How resume tailoring works
 It follows the **Wonsulting Resume Playbook**:
@@ -42,7 +42,17 @@ bash setup.sh
 
 After that it runs every hour by itself.
 
-## Google Sheet (live job list, no downloads)
+## Job dashboard (website)
+**https://khus-hi.github.io/shreeGanesh/** updates itself every hour and works on your phone too.
+- **Views:** All, New (24h), Top matches, Saved, Applied, Interviewing, Offers, Rejected, Hidden.
+- **Filters:** search, which resume, state, tech-hub metro, sponsorship, minimum match %, and sort order.
+- **Each job:** match score, which resume to send, sponsorship, years required, your matched and missing skills, and an **Apply** button.
+- **Status tracking:** set each job to New / Saved / Applied / Interview / Offer / Rejected / Hidden. Statuses are saved in your browser; use **Back up statuses / Restore statuses** at the bottom to move them to another device.
+- **Download CSV** of whatever you're currently viewing.
+
+`jobs.xlsx` is still saved in the repo as a backup.
+
+## Google Sheet (optional)
 Every run adds new jobs to a Google Sheet: newest on top, top matches green, "No sponsorship" in red. Your edits, like the Status column, are never overwritten. One-time setup, about 3 minutes:
 1. Create a new Google Sheet (sheets.new) and name it e.g. **Job Scanner**.
 2. **Extensions → Apps Script**. Delete everything there, paste the contents of `google_sheets_script.gs`, and click **Save**.

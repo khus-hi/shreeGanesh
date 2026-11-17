@@ -18,7 +18,7 @@ import re
 import smtplib
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, timezone
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -38,6 +38,9 @@ from openpyxl.styles import Font, PatternFill
 HERE = Path(__file__).parent
 COMPANIES_FILE = HERE / "companies.txt"
 EXCEL_FILE = HERE / "jobs.xlsx"
+DASHBOARD_DATA = HERE / "docs" / "jobs.json"
+DASHBOARD_URL = "https://khus-hi.github.io/shreeGanesh/"
+DASHBOARD_MAX_JOBS = 4000  # keep the page fast
 STATE_FILE = HERE / ".scanner_state.json"
 
 MAX_DAYS_OLD = 1          # Workday shows "Posted Today/Yesterday"; dedupe stops repeats
@@ -408,6 +411,36 @@ def sync_sheet(state, new):
         state["sheet_backfilled"] = True
 
 
+def export_dashboard():
+    """Writes docs/jobs.json (all jobs found so far) for the dashboard website."""
+    if not EXCEL_FILE.exists():
+        return
+    ws = load_workbook(EXCEL_FILE, read_only=True).active
+    rows = ws.iter_rows(values_only=True)
+    header = list(next(rows, []))
+    keys = {"Found On": "found", "Match %": "match", "Best Resume": "resume", "Company": "company",
+            "Title": "title", "State": "state", "Metro": "metro", "Location": "location",
+            "Sponsorship": "sponsor", "H-1B History": "h1b", "Years Req": "years",
+            "Matched Skills": "matched", "Missing Skills": "missing", "Posted": "posted",
+            "Source": "source", "URL": "url", "Tailored Resume": "tailored"}
+    repo = os.getenv("GITHUB_REPOSITORY")
+    jobs = []
+    for r in rows:
+        d = {keys[h]: ("" if v is None else v) for h, v in zip(header, r) if h in keys}
+        if not d.get("url"):
+            continue
+        if d.get("tailored") and repo and not str(d["tailored"]).startswith("http"):
+            d["tailored"] = ""  # older rows stored only a file name
+        jobs.append(d)
+    jobs.sort(key=lambda d: str(d.get("found", "")), reverse=True)
+    DASHBOARD_DATA.parent.mkdir(exist_ok=True)
+    DASHBOARD_DATA.write_text(json.dumps({
+        "updated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "top_match": MIN_MATCH_FOR_ALERT,
+        "jobs": jobs[:DASHBOARD_MAX_JOBS],
+    }, ensure_ascii=False, separators=(",", ":")))
+
+
 def save_new(new):
     if not new:
         return
@@ -421,9 +454,7 @@ def save_new(new):
     url_col = COLUMNS.index("URL") + 1
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     for j in sorted(new, key=lambda j: -j["match"]):
-        row = job_row(j, now)
-        row[COLUMNS.index("Tailored Resume")] = Path(j.get("tailored") or "").name
-        ws.append(row)
+        ws.append(job_row(j, now))
         r = ws.max_row
         for c in ws[r]:
             c.fill = yellow
@@ -464,11 +495,7 @@ def send_email(new):
     if rest:
         body += f"\nOTHER NEW JOBS ({len(rest)})\n\n" + "\n".join(map(line, rest))
     msg = MIMEMultipart()
-    msg.attach(MIMEText(body))
-    if EXCEL_FILE.exists():
-        part = MIMEApplication(EXCEL_FILE.read_bytes(), Name=EXCEL_FILE.name)
-        part["Content-Disposition"] = f'attachment; filename="{EXCEL_FILE.name}"'
-        msg.attach(part)
+    msg.attach(MIMEText(f"Open your job dashboard: {DASHBOARD_URL}\n\n" + body))
     for j in new:
         if j.get("tailored") and (HERE / j["tailored"]).exists():
             pdf = HERE / j["tailored"]
@@ -555,6 +582,7 @@ def main():
     save_state(state)
 
     save_new(new)
+    export_dashboard()
     sync_sheet(state, new)
     save_state(state)
     top = sum(j["match"] >= MIN_MATCH_FOR_ALERT for j in new)
