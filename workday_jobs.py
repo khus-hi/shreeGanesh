@@ -183,6 +183,13 @@ def us_state(location):
     return None
 
 
+def url_key(url):
+    """One-way fingerprint of a job link, so rejected links aren't published in the public repo
+    (some job links carry tracking tokens that secret scanners like GitGuardian flag)."""
+    import hashlib
+    return hashlib.sha256(str(url).encode()).hexdigest()[:20]
+
+
 def load_state():
     try:
         return json.loads(STATE_FILE.read_text())
@@ -704,7 +711,10 @@ def main():
 
     # 2. only look closer at jobs we haven't seen before
     store = load_store()
-    skip = {d.get("url") for d in store} | set(state.get("rejected", []))
+    # older versions stored raw links; convert them to fingerprints
+    state["rejected"] = [r if re.fullmatch(r"[0-9a-f]{20}", r) else url_key(r) for r in state.get("rejected", [])]
+    rejected_keys = set(state["rejected"])
+    skip = {d.get("url") for d in store}
     sig = lambda c, t: re.sub(r"\W+", " ", f"{c}|{t}".lower()).strip()
     recent = [d for d in store if str(d.get("found", "")) >= (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")]
     seen_sig = {sig(d.get("company"), d.get("title")) for d in recent if d.get("source") in COMPANY_SOURCES}
@@ -713,7 +723,7 @@ def main():
     for j in candidates:
         k = sig(j["company"], j["title"])
         # a company-site job may replace a job-board copy we saw earlier; job-board copies never replace anything
-        if j["url"] in skip or k in seen_sig or k in batch or (j.get("source") not in COMPANY_SOURCES and k in seen_board):
+        if j["url"] in skip or url_key(j["url"]) in rejected_keys or k in seen_sig or k in batch or (j.get("source") not in COMPANY_SOURCES and k in seen_board):
             continue
         batch.add(k)
         fresh.append(j)
@@ -738,7 +748,7 @@ def main():
             for j, path in zip(picks, pool.map(lambda j: tailor_resume(j, j["jd_text"], day), picks)):
                 j["tailored"] = path
 
-    state["rejected"] = (state.get("rejected", []) + rejected)[-5000:]
+    state["rejected"] = (state["rejected"] + [url_key(u) for u in rejected])[-5000:]
     save_state(state)
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
