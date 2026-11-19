@@ -1,11 +1,6 @@
-"""Temporary: run the full scanner exactly like the schedule does (results are not saved)."""
-import time, workday_jobs as w
-t0 = time.time()
-_orig = w.requests.request
-def logged(method, url, **kw):
-    r = _orig(method, url, **kw)
-    if "myworkdayjobs" in url:
-        print(f"    t+{time.time()-t0:5.1f}s {method} {url[:90]} -> {r.status_code}", flush=True)
-    return r
-w.requests.request = logged
-w.main()
+import ssl, sys, requests, time
+print("python", sys.version.split()[0], "|", ssl.OPENSSL_VERSION, "| requests", requests.__version__)
+B = {"appliedFacets":{},"limit":20,"offset":0,"searchText":"data"}
+for t, wd, s in [("mastercard","wd1","CorporateCareers"),("freshfields","wd3","fbd_101"),("nvidia","wd5","NVIDIAExternalCareerSite"),("walmart","wd5","WalmartExternal")]:
+    r = requests.post(f"https://{t}.{wd}.myworkdayjobs.com/wday/cxs/{t}/{s}/jobs", json=B, timeout=25)
+    print(f"  {t:12} HTTP {r.status_code}"); time.sleep(2)
