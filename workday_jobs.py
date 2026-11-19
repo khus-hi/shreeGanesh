@@ -269,6 +269,8 @@ def wd_request(method, url, **kw):
             _wd_last[0] = time.time()
         if r.status_code != 429:
             return r
+        print(f"  [workday 429] {url.split('/wday')[0]} attempt {attempt + 1}: server={r.headers.get('server')} "
+              f"retry-after={r.headers.get('retry-after')} cf-ray={r.headers.get('cf-ray')} body={r.text[:160]!r}")
         retry = r.headers.get("Retry-After", "") if hasattr(r, "headers") else ""
         time.sleep(min(int(retry) if str(retry).isdigit() else 15 * (attempt + 1), 60))
     _wd_blocked[0] = True
