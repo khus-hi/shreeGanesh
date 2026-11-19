@@ -56,7 +56,7 @@ SEARCH_TERMS = ["data", "machine learning"]  # Workday search also matches descr
 
 # Workday rate-limits hard (HTTP 429), so Workday sites are checked ONE AT A TIME with pauses,
 # a rotating batch per run. Every site is still checked every few hours.
-WORKDAY_PER_RUN = 12
+WORKDAY_PER_RUN = 40  # all of them while the list is small
 
 # Nationwide search on Indeed, LinkedIn, ZipRecruiter and Google Jobs (free, via JobSpy).
 AGGREGATORS = True
@@ -252,29 +252,42 @@ import threading
 _wd_lock = threading.Lock()
 _wd_last = [0.0]
 _wd_blocked = [False]
+_wd_strikes = [0]  # Workday sites in a row that refused us
+
+# Workday sits behind Cloudflare, which shows a bot check to plain Python requests from cloud
+# servers. curl_cffi sends the request with a real Chrome fingerprint, which gets through.
+try:
+    from curl_cffi import requests as _wd_http
+    _WD_KW = {"impersonate": "chrome"}
+except ImportError:  # fallback: plain requests
+    _wd_http, _WD_KW = requests, {}
 
 
 def wd_request(method, url, **kw):
     """All Workday traffic goes through here: one request at a time, a pause between requests,
-    and back-off on HTTP 429. If Workday keeps refusing, stop calling it for this run."""
+    and back-off on HTTP 429. A refused site is skipped; only 3 refused sites IN A ROW stop Workday."""
     if _wd_blocked[0]:
-        raise RuntimeError("skipped: Workday is rate-limiting this run")
+        raise RuntimeError("skipped: Workday refused 3 sites in a row this run")
     kw.setdefault("timeout", 25)
-    for attempt in range(3):
+    kw.pop("headers", None) if _WD_KW else None  # curl_cffi sets matching Chrome headers itself
+    for attempt in range(2):
         with _wd_lock:
             wait = WORKDAY_MIN_GAP - (time.time() - _wd_last[0])
             if wait > 0:
                 time.sleep(wait)
-            r = requests.request(method, url, **kw)
+            r = _wd_http.request(method, url, **kw, **_WD_KW)
             _wd_last[0] = time.time()
         if r.status_code != 429:
+            _wd_strikes[0] = 0
             return r
         print(f"  [workday 429] {url.split('/wday')[0]} attempt {attempt + 1}: server={r.headers.get('server')} "
               f"retry-after={r.headers.get('retry-after')} cf-ray={r.headers.get('cf-ray')} body={r.text[:160]!r}")
         retry = r.headers.get("Retry-After", "") if hasattr(r, "headers") else ""
-        time.sleep(min(int(retry) if str(retry).isdigit() else 15 * (attempt + 1), 60))
-    _wd_blocked[0] = True
-    raise RuntimeError("HTTP 429: Workday rate limit (stopped Workday for this run)")
+        time.sleep(min(int(retry) if str(retry).isdigit() else 10, 30))
+    _wd_strikes[0] += 1
+    if _wd_strikes[0] >= 3:
+        _wd_blocked[0] = True
+    raise RuntimeError("HTTP 429: Workday refused this site")
 
 
 def search_site(url):

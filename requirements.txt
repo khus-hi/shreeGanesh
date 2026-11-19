@@ -5,3 +5,4 @@ anthropic
 reportlab
 cryptography
 python-jobspy==1.4.1
+curl_cffi
