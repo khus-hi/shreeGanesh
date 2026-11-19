@@ -15,8 +15,35 @@ SEARCH_TERMS = ["data analyst", "data scientist", "data engineer", "machine lear
                 "analytics engineer", "business intelligence analyst"]
 
 # site -> results per search term (keep LinkedIn small: it rate-limits quickly)
-SITES = {"indeed": 60, "linkedin": 20, "zip_recruiter": 30, "google": 30}
+SITES = {"indeed": 100, "linkedin": 30, "zip_recruiter": 30, "google": 30}
 LABEL = {"indeed": "Indeed", "linkedin": "LinkedIn", "zip_recruiter": "ZipRecruiter", "google": "Google Jobs"}
+
+
+def _newest_first():
+    """JobSpy asks Indeed and LinkedIn for the most RELEVANT jobs in the time window, so with a
+    per-search cap, brand-new postings can be cut off. Switch both to newest-first."""
+    notes = []
+    try:
+        import jobspy.indeed as ji
+        if "sort: RELEVANCE" in ji.job_search_query:
+            ji.job_search_query = ji.job_search_query.replace("sort: RELEVANCE", "sort: DATE")
+        notes.append("Indeed")
+    except Exception:
+        pass
+    try:
+        from jobspy.linkedin import LinkedIn
+        if not getattr(LinkedIn, "_newest_patch", False):
+            orig = LinkedIn._search_params
+            def _params(self):
+                p = orig(self)
+                p["sortBy"] = "DD"  # date descending
+                return p
+            LinkedIn._search_params = _params
+            LinkedIn._newest_patch = True
+        notes.append("LinkedIn")
+    except Exception:
+        pass
+    return notes
 
 
 def _ok(v):
@@ -58,7 +85,9 @@ def fetch_aggregators(keep_title, max_days, hours_old, log=print):
         log("JobSpy not installed (pip install python-jobspy): skipping Indeed/LinkedIn/ZipRecruiter/Google")
         return [], {}
 
+    sorted_sites = _newest_first()
     out, stats = {}, {}
+    dropped = {"title": 0, "older than window": 0}
     for site, per_term in SITES.items():
         got = 0
         for term in SEARCH_TERMS:
@@ -77,10 +106,14 @@ def fetch_aggregators(keep_title, max_days, hours_old, log=print):
             for r in df.to_dict("records"):
                 title = str(r.get("title")) if _ok(r.get("title")) else ""
                 company = str(r.get("company")) if _ok(r.get("company")) else ""
-                if not title or not company or not keep_title(title):
+                if not title or not company:
+                    continue
+                if not keep_title(title):
+                    dropped["title"] += 1
                     continue
                 posted, days = _posted(r.get("date_posted"))
                 if days > max_days:
+                    dropped["older than window"] += 1
                     continue
                 url = next((str(u) for u in (r.get("job_url_direct"), r.get("job_url")) if _ok(u)), "")
                 if not url:
@@ -98,4 +131,7 @@ def fetch_aggregators(keep_title, max_days, hours_old, log=print):
                 })
                 got += 1
         stats.setdefault(LABEL[site], f"{got} candidates")
+    stats["newest-first"] = "+".join(sorted_sites) or "off"
+    stats["skipped (senior/intern/other title)"] = dropped["title"]
+    stats["skipped (too old)"] = dropped["older than window"]
     return list(out.values()), stats

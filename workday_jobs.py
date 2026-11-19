@@ -60,7 +60,7 @@ WORKDAY_PER_RUN = 12
 
 # Nationwide search on Indeed, LinkedIn, ZipRecruiter and Google Jobs (free, via JobSpy).
 AGGREGATORS = True
-AGG_HOURS_EACH_RUN = 3     # minimum look-back; it automatically reaches back to the previous run (no gaps)
+AGG_HOURS_EACH_RUN = 2     # minimum look-back; it automatically reaches back to the previous run (no gaps)
 AGG_FIRST_RUN_HOURS = 24   # the first run back-fills a full day
 WORKDAY_MIN_GAP = 2.0      # seconds between any two Workday requests
 
@@ -734,8 +734,15 @@ def main():
 
     # 3. read descriptions + score
     new, rejected = [], []
+    why = {"not in the US": 0, f"needs {MAX_YEARS_EXPERIENCE + 1}+ years": 0, "no sponsorship (skipped by setting)": 0}
     with ThreadPoolExecutor(WORKERS) as pool:
         for job, res in zip(fresh, pool.map(enrich_job, fresh)):
+            if res is None:
+                why["not in the US"] += 1
+            elif res.get("years") is not None and res["years"] > MAX_YEARS_EXPERIENCE:
+                why[f"needs {MAX_YEARS_EXPERIENCE + 1}+ years"] += 1
+            elif SKIP_NO_SPONSORSHIP and res["sponsor"] == "No":
+                why["no sponsorship (skipped by setting)"] += 1
             too_senior = res is not None and res.get("years") is not None and res["years"] > MAX_YEARS_EXPERIENCE
             if res is None or too_senior or (SKIP_NO_SPONSORSHIP and res["sponsor"] == "No"):
                 rejected.append(job["url"])
@@ -752,6 +759,8 @@ def main():
             for j, path in zip(picks, pool.map(lambda j: tailor_resume(j, j["jd_text"], day), picks)):
                 j["tailored"] = path
 
+    print(f"Checked {len(fresh)} new postings ({len(candidates) - len(fresh)} already seen or duplicates); "
+          + ", ".join(f"{v} {k}" for k, v in why.items() if v))
     state["rejected"] = (state["rejected"] + [url_key(u) for u in rejected])[-5000:]
     state["last_run"] = time.time()
     save_state(state)

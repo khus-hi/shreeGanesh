@@ -4,4 +4,4 @@ pypdf
 anthropic
 reportlab
 cryptography
-python-jobspy
+python-jobspy==1.4.1
