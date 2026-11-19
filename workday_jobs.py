@@ -60,7 +60,7 @@ WORKDAY_PER_RUN = 12
 
 # Nationwide search on Indeed, LinkedIn, ZipRecruiter and Google Jobs (free, via JobSpy).
 AGGREGATORS = True
-AGG_HOURS_EACH_RUN = 3     # each hourly run looks back 3h (overlap is de-duplicated)
+AGG_HOURS_EACH_RUN = 3     # minimum look-back; it automatically reaches back to the previous run (no gaps)
 AGG_FIRST_RUN_HOURS = 24   # the first run back-fills a full day
 WORKDAY_MIN_GAP = 2.0      # seconds between any two Workday requests
 
@@ -702,7 +702,11 @@ def main():
     disable_broken(state, others + wd_batch, failed)
 
     if AGGREGATORS:
-        hours = AGG_HOURS_EACH_RUN if state.get("agg_backfilled") else AGG_FIRST_RUN_HOURS
+        if not state.get("agg_backfilled"):
+            hours = AGG_FIRST_RUN_HOURS
+        else:  # cover everything since the last run, plus an hour of overlap, even if GitHub skipped runs
+            since = (time.time() - state.get("last_run", time.time() - AGG_HOURS_EACH_RUN * 3600)) / 3600
+            hours = int(min(AGG_FIRST_RUN_HOURS, max(AGG_HOURS_EACH_RUN, since + 1)) + 0.999)
         agg, agg_stats = fetch_aggregators(keep_title, MAX_DAYS_OLD, hours)
         print(f"Nationwide search (last {hours}h): " + ", ".join(f"{k}: {v}" for k, v in agg_stats.items()))
         candidates += agg
@@ -749,6 +753,7 @@ def main():
                 j["tailored"] = path
 
     state["rejected"] = (state["rejected"] + [url_key(u) for u in rejected])[-5000:]
+    state["last_run"] = time.time()
     save_state(state)
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
