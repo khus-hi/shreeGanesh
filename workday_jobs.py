@@ -71,7 +71,7 @@ TITLE_INCLUDE = re.compile(
 # remove words here if you want those roles too
 TITLE_EXCLUDE = re.compile(
     r"senior|\bsr\b|staff|principal|lead|manager|director|head of|\bvp\b|architect|"
-    r"intern|co-op|data center|technician|clinical data|data entry",
+    r"intern|co-op|data center|technician|clinical data|data entry|clerk|case management|payroll",
     re.I,
 )
 
@@ -162,9 +162,12 @@ NON_US_RE = re.compile(
 CODE_PREFIX_RE = re.compile(r"^\s*([A-Z]{2,3})\s*-\s*([A-Z]{2})\s*-")
 
 
+UT_TEXAS_RE = re.compile(r"\bUT[ -]?(Austin|Main Campus|Southwestern|Health|Dallas|Arlington|Tyler|El Paso|San Antonio|MD Anderson)", re.I)
+
+
 def us_state(location):
     """Returns 'MA', 'Remote', 'US', or None if not US."""
-    loc = location or ""
+    loc = UT_TEXAS_RE.sub(r"Texas \1", location or "")  # "UT Austin" is Texas, not Utah
     m = CODE_PREFIX_RE.match(loc)
     if m:
         if m.group(1) in ("US", "USA") and m.group(2) in STATES:
@@ -340,6 +343,23 @@ def scan_any(url):
     raise ValueError("unknown job board")
 
 
+WD_NAMES = {"capitalone": "Capital One", "bah": "Booz Allen Hamilton", "mdlz": "Mondelez", "cvshealth": "CVS Health",
+            "statestreet": "State Street", "modernatx": "Moderna", "archgroup": "Arch Group", "utaustin": "UT Austin",
+            "sralab": "Shirley Ryan AbilityLab", "oregon": "State of Oregon", "edwards": "Edwards Lifesciences"}
+
+
+def clean_company(org, fallback):
+    """Workday org names carry internal codes: '631 Booz Allen Hamilton_United States' -> 'Booz Allen Hamilton'."""
+    name = (org or "").strip()
+    name = re.sub(r"^(?:[A-Z]?\d{2,}[A-Z]?\s+)+", "", name)            # '4004 ', 'U031 ', '2100 '
+    name = re.sub(r"[_ ]+(United States|USA|US)(\b.*)?$", "", name)     # '_United States'
+    name = re.sub(r"\s+(USA|Intl Service|Service)$", "", name).strip(" ,-_")
+    if not name:
+        fb = fallback or ""
+        name = WD_NAMES.get(fb.lower(), fb.replace("-", " ").title() if fb.islower() else fb)
+    return name
+
+
 def get_details(job):
     """Returns (description text, org name, extra location strings, country)."""
     src = job.get("source")
@@ -381,7 +401,7 @@ def enrich_job(job):
     job["metro"] = metro_of(job["location"], st)
 
     # description-based fields
-    job["company_name"] = org or job["company"]
+    job["company_name"] = clean_company(org, job["company"])
     job["sponsor"], job["sponsor_text"] = sponsorship(text) if text else ("Unknown", "")
     job["h1b"] = h1b_history(org, job["company"])
     job.update(score(job["title"], text))
