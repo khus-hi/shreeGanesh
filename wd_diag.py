@@ -1,19 +1,29 @@
-"""Temporary: test different ways of calling Workday from GitHub's servers."""
-import requests, time, json
-SITES = [("nvidia","wd5","NVIDIAExternalCareerSite"),("capitalone","wd12","Capital_One"),("cigna","wd5","cignacareers")]
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-BODY = {"appliedFacets":{},"limit":20,"offset":0,"searchText":"data"}
-def show(name, r):
-    try: n = len(r.json().get("jobPostings", []))
-    except Exception: n = "-"
-    print(f"  {name:38} HTTP {r.status_code}  jobs={n}  server={r.headers.get('server','')}  retry-after={r.headers.get('retry-after','')}  body={r.text[:90]!r}")
-ip = requests.get("https://api.ipify.org").text; print("runner IP:", ip)
-for t, wd, s in SITES:
-    base = f"https://{t}.{wd}.myworkdayjobs.com"; api = f"{base}/wday/cxs/{t}/{s}/jobs"
-    print(t)
-    show("plain POST (no headers)", requests.post(api, json=BODY, timeout=25)); time.sleep(3)
-    show("POST + browser headers", requests.post(api, json=BODY, timeout=25, headers={"User-Agent":UA,"Accept":"application/json","Content-Type":"application/json","Accept-Language":"en-US","Origin":base,"Referer":f"{base}/en-US/{s}"})); time.sleep(3)
-    ses = requests.Session(); ses.headers["User-Agent"] = UA
-    g = ses.get(f"{base}/en-US/{s}", timeout=25); show("GET career page (HTML)", g); time.sleep(3)
-    show("POST after page visit (cookies)", ses.post(api, json=BODY, timeout=25, headers={"Accept":"application/json","Content-Type":"application/json","Origin":base,"Referer":f"{base}/en-US/{s}"})); time.sleep(3)
-    show("GET sitemap/rss alt", requests.get(f"{base}/wday/cxs/{t}/{s}/jobs?limit=5", headers={"User-Agent":UA}, timeout=25)); time.sleep(5)
+"""Temporary: run the scanner's own Workday code on GitHub, with/without jobspy loaded."""
+import sys, subprocess
+CODE_A = r'''
+import time, requests
+import workday_jobs as w
+print("A) full scanner imports; jobspy loaded:", "jobspy" in __import__("sys").modules)
+for u in ["https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite","https://mastercard.wd1.myworkdayjobs.com/CorporateCareers","https://freshfields.wd3.myworkdayjobs.com/fbd_101"]:
+    try: print("  ", u.split("//")[1].split(".")[0], "jobs:", len(w.search_site(u)))
+    except Exception as e: print("  ", u, "ERR", e)
+'''
+CODE_B = r'''
+import sys, requests, time
+sys.modules["jobspy"] = None  # block jobspy import
+import types; fake = types.ModuleType("aggregators"); fake.fetch_aggregators = lambda *a, **k: ([], {}); sys.modules["aggregators"] = fake
+import workday_jobs as w
+print("B) without jobspy")
+for u in ["https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite","https://mastercard.wd1.myworkdayjobs.com/CorporateCareers","https://freshfields.wd3.myworkdayjobs.com/fbd_101"]:
+    try: print("  ", u.split("//")[1].split(".")[0], "jobs:", len(w.search_site(u)))
+    except Exception as e: print("  ", u, "ERR", e)
+'''
+CODE_C = r'''
+import requests
+r = requests.post("https://freshfields.wd3.myworkdayjobs.com/wday/cxs/freshfields/fbd_101/jobs", json={"appliedFacets":{},"limit":20,"offset":0,"searchText":"data"}, timeout=25)
+print("C) freshfields plain:", r.status_code, r.text[:150])
+r = requests.post("https://mastercard.wd1.myworkdayjobs.com/wday/cxs/mastercard/CorporateCareers/jobs", json={"appliedFacets":{},"limit":20,"offset":0,"searchText":"data"}, timeout=25)
+print("C) mastercard plain:", r.status_code, r.text[:150])
+'''
+for c in (CODE_C, CODE_B, CODE_A):
+    subprocess.run([sys.executable, "-c", c]); sys.stdout.flush()
