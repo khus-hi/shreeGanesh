@@ -1,26 +1,21 @@
 name: Workday diagnostic
 on: workflow_dispatch
 jobs:
-  system-python:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: python3 -m pip install -q --break-system-packages requests; python3 wd_diag.py
-  setup-python-311:
+  pinned-requests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.11"}
-      - run: pip install -q requests && python wd_diag.py
-  setup-python-312:
+      - run: pip install -q -r requirements.txt "requests==2.32.5" && python wd_diag.py
+  pinned-again:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: {python-version: "3.12"}
-      - run: pip install -q requests && python wd_diag.py
-  full-reqs-311:
+        with: {python-version: "3.11"}
+      - run: pip install -q -r requirements.txt "requests==2.32.5" && python wd_diag.py
+  new-requests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
