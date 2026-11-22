@@ -6,7 +6,7 @@
 https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite
 # disabled (failed 3 runs): https://salesforce.wd12.myworkdayjobs.com/External_Career_Site
 https://adobe.wd5.myworkdayjobs.com/external_experienced
-https://capitalone.wd12.myworkdayjobs.com/Capital_One
+# disabled (failed 3 runs): https://capitalone.wd12.myworkdayjobs.com/Capital_One
 https://mastercard.wd1.myworkdayjobs.com/CorporateCareers
 # disabled (failed 3 runs): https://walmart.wd5.myworkdayjobs.com/WalmartExternal
 # disabled (failed 3 runs): https://intel.wd1.myworkdayjobs.com/External
